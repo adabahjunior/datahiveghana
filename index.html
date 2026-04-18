@@ -4,11 +4,23 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>lovable-starter</title>
-    <meta name="description" content="Lovable starter app" />
-    <meta name="author" content="Lovable" />
+    <title>DataHive Ghana — Buy Data Bundles & Resell as an Agent</title>
+    <meta name="description" content="Buy MTN, Telecel and AirtelTigo data bundles instantly. Become an agent and resell data with your own mini-website." />
+    <meta name="author" content="DataHive Ghana" />
+    <meta property="og:title" content="DataHive Ghana — Data Bundles & Agent Reselling" />
+    <meta property="og:description" content="Affordable data bundles for all networks. Agents earn with their own branded store." />
+    <meta property="og:type" content="website" />
+    <script>
+      (function() {
+        try {
+          var t = localStorage.getItem('theme');
+          if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+          }
+        } catch(e) {}
+      })();
+    </script>
   </head>
-
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>

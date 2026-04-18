@@ -14,16 +14,429 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      agent_stores: {
+        Row: {
+          agent_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          slug: string
+          store_name: string
+          support_phone: string
+          updated_at: string
+          whatsapp_link: string | null
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          slug: string
+          store_name: string
+          support_phone: string
+          updated_at?: string
+          whatsapp_link?: string | null
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          slug?: string
+          store_name?: string
+          support_phone?: string
+          updated_at?: string
+          whatsapp_link?: string | null
+        }
+        Relationships: []
+      }
+      app_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
+      data_packages: {
+        Row: {
+          agent_price: number
+          created_at: string
+          display_order: number
+          guest_price: number
+          id: string
+          is_active: boolean
+          name: string
+          network: Database["public"]["Enums"]["network_type"]
+          updated_at: string
+          validity_days: number | null
+          volume_mb: number
+        }
+        Insert: {
+          agent_price: number
+          created_at?: string
+          display_order?: number
+          guest_price: number
+          id?: string
+          is_active?: boolean
+          name: string
+          network: Database["public"]["Enums"]["network_type"]
+          updated_at?: string
+          validity_days?: number | null
+          volume_mb: number
+        }
+        Update: {
+          agent_price?: number
+          created_at?: string
+          display_order?: number
+          guest_price?: number
+          id?: string
+          is_active?: boolean
+          name?: string
+          network?: Database["public"]["Enums"]["network_type"]
+          updated_at?: string
+          validity_days?: number | null
+          volume_mb?: number
+        }
+        Relationships: []
+      }
+      issue_reports: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          related_order_id: string | null
+          resolved: boolean
+          subject: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          related_order_id?: string | null
+          resolved?: boolean
+          subject: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          related_order_id?: string | null
+          resolved?: boolean
+          subject?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "issue_reports_related_order_id_fkey"
+            columns: ["related_order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          agent_profit: number
+          amount_paid: number
+          buyer_user_id: string | null
+          cost_price: number
+          created_at: string
+          id: string
+          network: Database["public"]["Enums"]["network_type"]
+          notes: string | null
+          package_id: string
+          paid_via: string
+          recipient_phone: string
+          status: Database["public"]["Enums"]["order_status"]
+          store_id: string | null
+          updated_at: string
+          volume_mb: number
+        }
+        Insert: {
+          agent_profit?: number
+          amount_paid: number
+          buyer_user_id?: string | null
+          cost_price: number
+          created_at?: string
+          id?: string
+          network: Database["public"]["Enums"]["network_type"]
+          notes?: string | null
+          package_id: string
+          paid_via?: string
+          recipient_phone: string
+          status?: Database["public"]["Enums"]["order_status"]
+          store_id?: string | null
+          updated_at?: string
+          volume_mb: number
+        }
+        Update: {
+          agent_profit?: number
+          amount_paid?: number
+          buyer_user_id?: string | null
+          cost_price?: number
+          created_at?: string
+          id?: string
+          network?: Database["public"]["Enums"]["network_type"]
+          notes?: string | null
+          package_id?: string
+          paid_via?: string
+          recipient_phone?: string
+          status?: Database["public"]["Enums"]["order_status"]
+          store_id?: string | null
+          updated_at?: string
+          volume_mb?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "data_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "agent_stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string
+          full_name: string | null
+          id: string
+          is_agent: boolean
+          phone: string | null
+          profit_balance: number
+          updated_at: string
+          user_id: string
+          wallet_balance: number
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          full_name?: string | null
+          id?: string
+          is_agent?: boolean
+          phone?: string | null
+          profit_balance?: number
+          updated_at?: string
+          user_id: string
+          wallet_balance?: number
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          full_name?: string | null
+          id?: string
+          is_agent?: boolean
+          phone?: string | null
+          profit_balance?: number
+          updated_at?: string
+          user_id?: string
+          wallet_balance?: number
+        }
+        Relationships: []
+      }
+      store_package_prices: {
+        Row: {
+          created_at: string
+          id: string
+          is_listed: boolean
+          package_id: string
+          selling_price: number
+          store_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_listed?: boolean
+          package_id: string
+          selling_price: number
+          store_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_listed?: boolean
+          package_id?: string
+          selling_price?: number
+          store_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "store_package_prices_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "data_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "store_package_prices_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "agent_stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transactions: {
+        Row: {
+          amount: number
+          created_at: string
+          description: string | null
+          id: string
+          paystack_charge: number
+          reference: string | null
+          related_order_id: string | null
+          status: Database["public"]["Enums"]["transaction_status"]
+          type: Database["public"]["Enums"]["transaction_type"]
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          paystack_charge?: number
+          reference?: string | null
+          related_order_id?: string | null
+          status?: Database["public"]["Enums"]["transaction_status"]
+          type: Database["public"]["Enums"]["transaction_type"]
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          paystack_charge?: number
+          reference?: string | null
+          related_order_id?: string | null
+          status?: Database["public"]["Enums"]["transaction_status"]
+          type?: Database["public"]["Enums"]["transaction_type"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_related_order_id_fkey"
+            columns: ["related_order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      withdrawals: {
+        Row: {
+          admin_notes: string | null
+          agent_id: string
+          amount: number
+          created_at: string
+          id: string
+          momo_name: string
+          momo_number: string
+          network: Database["public"]["Enums"]["network_type"]
+          processed_at: string | null
+          status: Database["public"]["Enums"]["withdrawal_status"]
+        }
+        Insert: {
+          admin_notes?: string | null
+          agent_id: string
+          amount: number
+          created_at?: string
+          id?: string
+          momo_name: string
+          momo_number: string
+          network: Database["public"]["Enums"]["network_type"]
+          processed_at?: string | null
+          status?: Database["public"]["Enums"]["withdrawal_status"]
+        }
+        Update: {
+          admin_notes?: string | null
+          agent_id?: string
+          amount?: number
+          created_at?: string
+          id?: string
+          momo_name?: string
+          momo_number?: string
+          network?: Database["public"]["Enums"]["network_type"]
+          processed_at?: string | null
+          status?: Database["public"]["Enums"]["withdrawal_status"]
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "user" | "agent" | "admin"
+      network_type:
+        | "mtn"
+        | "telecel"
+        | "airteltigo_ishare"
+        | "airteltigo_bigtime"
+      order_status: "pending" | "processing" | "delivered" | "failed"
+      transaction_status: "pending" | "success" | "failed"
+      transaction_type:
+        | "wallet_topup"
+        | "data_purchase"
+        | "agent_activation"
+        | "withdrawal"
+        | "store_sale"
+      withdrawal_status: "pending" | "approved" | "paid" | "rejected"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +563,24 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["user", "agent", "admin"],
+      network_type: [
+        "mtn",
+        "telecel",
+        "airteltigo_ishare",
+        "airteltigo_bigtime",
+      ],
+      order_status: ["pending", "processing", "delivered", "failed"],
+      transaction_status: ["pending", "success", "failed"],
+      transaction_type: [
+        "wallet_topup",
+        "data_purchase",
+        "agent_activation",
+        "withdrawal",
+        "store_sale",
+      ],
+      withdrawal_status: ["pending", "approved", "paid", "rejected"],
+    },
   },
 } as const
