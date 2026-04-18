@@ -4,7 +4,7 @@ project_id = "cscakblvipadupebrpkh"
 verify_jwt = true
 
 [functions.purchase-data]
-verify_jwt = true
+verify_jwt = false
 
 [functions.activate-agent]
 verify_jwt = true
