@@ -5,6 +5,13 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const NETWORK_KEY_MAP: Record<string, string> = {
+  mtn: "YELLO",
+  telecel: "TELECEL",
+  airteltigo_ishare: "AT_PREMIUM",
+  airteltigo_bigtime: "AT_BIGTIME",
+};
+
 const calcPaystackCharge = (amount: number, percent = 1.95, cap = 100): number => {
   const charge = (amount * percent) / 100;
   return Math.min(charge, cap);
@@ -27,6 +34,41 @@ const verifyPaystackReference = async (reference: string, secretKey: string) => 
   return payload.data as { status: string; amount: number; currency: string; reference: string };
 };
 
+const toProviderCapacity = (volumeMb: number): number => {
+  const gb = Number(volumeMb) / 1000;
+  return Number.isFinite(gb) ? Number(gb.toFixed(2)) : 0;
+};
+
+const appendNotes = (existing: string | null | undefined, line: string): string => {
+  if (!existing) return line;
+  return `${existing}\n${line}`;
+};
+
+const purchaseFromProvider = async (
+  purchaseUrl: string,
+  apiKey: string,
+  payload: { networkKey: string; recipient: string; capacity: number; webhook_url?: string },
+) => {
+  const response = await fetch(purchaseUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-API-Key": apiKey,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const text = await response.text();
+  let parsed: any = null;
+  try {
+    parsed = text ? JSON.parse(text) : null;
+  } catch {
+    parsed = { raw: text };
+  }
+
+  return { ok: response.ok, status: response.status, body: parsed };
+};
+
 // Public guest checkout on agent stores. No auth required.
 // Payment is verified with Paystack server-side before order creation.
 Deno.serve(async (req) => {
@@ -34,7 +76,11 @@ Deno.serve(async (req) => {
   try {
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const paystackSecretKey = Deno.env.get("PAYSTACK_SECRET_KEY");
+    const providerApiKey = Deno.env.get("SPENDLESS_API_KEY");
+    const providerPurchaseUrl = Deno.env.get("SPENDLESS_PURCHASE_URL") || "https://spendless.top/api/purchase";
+    const providerWebhookUrl = Deno.env.get("SPENDLESS_WEBHOOK_URL") || undefined;
     if (!paystackSecretKey) return json({ error: "Server Paystack secret is not configured" }, 500);
+    if (!providerApiKey) return json({ error: "Provider API key is not configured" }, 500);
 
     const { store_id, package_id, recipient_phone, reference } = await req.json();
 
@@ -83,10 +129,53 @@ Deno.serve(async (req) => {
       amount_paid: sellingPrice,
       cost_price: costPrice,
       agent_profit: profit,
-      status: "pending",
+      status: "processing",
       paid_via: "paystack",
-      notes: `paystack_ref:${reference}`,
+      notes: `paystack_ref:${reference}\nRouting order to provider...`,
     }).select().single();
+
+    const providerNetworkKey = NETWORK_KEY_MAP[pkg.network as string];
+    if (!providerNetworkKey) {
+      await supabase
+        .from("orders")
+        .update({ status: "failed", notes: appendNotes(order?.notes, "Unsupported network mapping") })
+        .eq("id", order?.id);
+      return json({ success: false, error: "Unsupported network for provider", code: "UNSUPPORTED_NETWORK" });
+    }
+
+    const providerRes = await purchaseFromProvider(providerPurchaseUrl, providerApiKey, {
+      networkKey: providerNetworkKey,
+      recipient: recipient_phone,
+      capacity: toProviderCapacity(Number(pkg.volume_mb)),
+      webhook_url: providerWebhookUrl,
+    });
+
+    const providerSuccess = providerRes.ok && providerRes.body?.status === "success";
+    if (!providerSuccess) {
+      await supabase
+        .from("orders")
+        .update({
+          status: "failed",
+          notes: appendNotes(order?.notes, `Provider failure (${providerRes.status}): ${JSON.stringify(providerRes.body)}`),
+        })
+        .eq("id", order?.id);
+
+      return json({ success: false, error: "Provider failed to process this order", code: "PROVIDER_PURCHASE_FAILED" });
+    }
+
+    const providerReference = providerRes.body?.data?.reference ? String(providerRes.body.data.reference) : null;
+    const providerBalance = providerRes.body?.data?.balance != null ? String(providerRes.body.data.balance) : null;
+
+    await supabase
+      .from("orders")
+      .update({
+        status: "delivered",
+        notes: appendNotes(
+          order?.notes,
+          `Provider success${providerReference ? ` | ref: ${providerReference}` : ""}${providerBalance ? ` | balance: ${providerBalance}` : ""}`,
+        ),
+      })
+      .eq("id", order?.id);
 
     // Credit agent profit
     if (profit > 0) {
@@ -95,7 +184,7 @@ Deno.serve(async (req) => {
       await supabase.from("profiles").update({ profit_balance: newProfit }).eq("user_id", store.agent_id);
       await supabase.from("transactions").insert({
         user_id: store.agent_id, type: "store_sale", status: "success",
-        amount: profit, related_order_id: order?.id,
+        amount: profit, related_order_id: order?.id, reference: providerReference,
         description: `Sale on store: ${pkg.name} ${pkg.network.toUpperCase()}`,
       });
     }

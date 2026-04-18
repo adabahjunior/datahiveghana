@@ -5,12 +5,60 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const NETWORK_KEY_MAP: Record<string, string> = {
+  mtn: "YELLO",
+  telecel: "TELECEL",
+  airteltigo_ishare: "AT_PREMIUM",
+  airteltigo_bigtime: "AT_BIGTIME",
+};
+
+const toProviderCapacity = (volumeMb: number): number => {
+  const gb = Number(volumeMb) / 1000;
+  return Number.isFinite(gb) ? Number(gb.toFixed(2)) : 0;
+};
+
+const appendNotes = (existing: string | null | undefined, line: string): string => {
+  if (!existing) return line;
+  return `${existing}\n${line}`;
+};
+
+const purchaseFromProvider = async (
+  purchaseUrl: string,
+  apiKey: string,
+  payload: { networkKey: string; recipient: string; capacity: number; webhook_url?: string },
+) => {
+  const response = await fetch(purchaseUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-API-Key": apiKey,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const text = await response.text();
+  let parsed: any = null;
+  try {
+    parsed = text ? JSON.parse(text) : null;
+  } catch {
+    parsed = { raw: text };
+  }
+
+  return { ok: response.ok, status: response.status, body: parsed };
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return fail("Method not allowed", "METHOD_NOT_ALLOWED");
 
   try {
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const providerApiKey = Deno.env.get("SPENDLESS_API_KEY");
+    const providerPurchaseUrl = Deno.env.get("SPENDLESS_PURCHASE_URL") || "https://spendless.top/api/purchase";
+    const providerWebhookUrl = Deno.env.get("SPENDLESS_WEBHOOK_URL") || undefined;
+
+    if (!providerApiKey) return fail("Provider API key is not configured", "PROVIDER_NOT_CONFIGURED");
+
     const auth = req.headers.get("Authorization");
     if (!auth) return fail("Unauthorized", "UNAUTHORIZED");
     const { data: { user }, error: userError } = await supabase.auth.getUser(auth.replace("Bearer ", ""));
@@ -58,18 +106,72 @@ Deno.serve(async (req) => {
       amount_paid: price,
       cost_price: Number(pkg.agent_price),
       agent_profit: 0,
-      status: "pending",
+      status: "processing",
       paid_via: "wallet",
+      notes: "Routing order to provider...",
     }).select().single();
     if (orderError || !order) {
       await supabase.from("profiles").update({ wallet_balance: Number(profile.wallet_balance) }).eq("user_id", user.id);
       return fail(`Order creation failed: ${orderError?.message || "Unknown error"}`, "ORDER_CREATE_FAILED");
     }
 
+    const providerNetworkKey = NETWORK_KEY_MAP[pkg.network as string];
+    if (!providerNetworkKey) {
+      await supabase.from("orders").update({ status: "failed", notes: appendNotes(order.notes, "Unsupported network mapping") }).eq("id", order.id);
+      await supabase.from("profiles").update({ wallet_balance: Number(profile.wallet_balance) }).eq("user_id", user.id);
+      return fail("Unsupported network for provider", "UNSUPPORTED_NETWORK");
+    }
+
+    const providerRes = await purchaseFromProvider(providerPurchaseUrl, providerApiKey, {
+      networkKey: providerNetworkKey,
+      recipient: recipient_phone,
+      capacity: toProviderCapacity(Number(pkg.volume_mb)),
+      webhook_url: providerWebhookUrl,
+    });
+
+    const providerSuccess = providerRes.ok && providerRes.body?.status === "success";
+    if (!providerSuccess) {
+      await supabase
+        .from("orders")
+        .update({
+          status: "failed",
+          notes: appendNotes(order.notes, `Provider failure (${providerRes.status}): ${JSON.stringify(providerRes.body)}`),
+        })
+        .eq("id", order.id);
+
+      await supabase.from("profiles").update({ wallet_balance: Number(profile.wallet_balance) }).eq("user_id", user.id);
+
+      await supabase.from("transactions").insert({
+        user_id: user.id,
+        type: "data_purchase",
+        status: "failed",
+        amount: price,
+        related_order_id: order.id,
+        description: `Provider failed for ${pkg.name} ${pkg.network.toUpperCase()} → ${recipient_phone}`,
+      });
+
+      return fail("Provider failed to process this order", "PROVIDER_PURCHASE_FAILED");
+    }
+
+    const providerReference = providerRes.body?.data?.reference ? String(providerRes.body.data.reference) : null;
+    const providerBalance = providerRes.body?.data?.balance != null ? String(providerRes.body.data.balance) : null;
+
+    await supabase
+      .from("orders")
+      .update({
+        status: "delivered",
+        notes: appendNotes(
+          order.notes,
+          `Provider success${providerReference ? ` | ref: ${providerReference}` : ""}${providerBalance ? ` | balance: ${providerBalance}` : ""}`,
+        ),
+      })
+      .eq("id", order.id);
+
     const { error: txError } = await supabase.from("transactions").insert({
       user_id: user.id, type: "data_purchase", status: "success",
       amount: price, related_order_id: order?.id,
-      description: `${pkg.name} ${pkg.network.toUpperCase()} → ${recipient_phone}`,
+      reference: providerReference,
+      description: `${pkg.name} ${pkg.network.toUpperCase()} delivered → ${recipient_phone}`,
     });
     if (txError) {
       await supabase.from("orders").delete().eq("id", order.id);
