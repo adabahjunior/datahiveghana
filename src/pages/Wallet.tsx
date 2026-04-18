@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PageHeader } from "@/components/PageHeader";
 import { formatGHS, calcPaystackCharge } from "@/lib/format";
+import { startPaystackCheckout } from "@/lib/paystack";
 import { toast } from "sonner";
 import { Wallet as WalletIcon, Loader2, Info } from "lucide-react";
 
@@ -14,6 +15,7 @@ export default function Wallet() {
   const { profile, refreshProfile } = useAuth();
   const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(false);
+  const paystackPublicKey = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY;
 
   const numAmount = parseFloat(amount) || 0;
   const charge = numAmount > 0 ? calcPaystackCharge(numAmount) : 0;
@@ -21,19 +23,40 @@ export default function Wallet() {
 
   const handleTopUp = async () => {
     if (numAmount < 1) { toast.error("Enter a valid amount"); return; }
+    if (!paystackPublicKey) { toast.error("Paystack is not configured"); return; }
+    if (!profile?.email) { toast.error("Your account email is required for payment"); return; }
+
     setLoading(true);
-    // Simulated payment — in real flow this redirects to Paystack
-    const { data, error } = await supabase.functions.invoke("simulate-topup", {
-      body: { amount: numAmount, charge },
-    });
-    setLoading(false);
-    if (error || !data?.success) {
-      toast.error(data?.error || error?.message || "Top-up failed");
-      return;
+    try {
+      const reference = await startPaystackCheckout({
+        publicKey: paystackPublicKey,
+        email: profile.email,
+        amountInGhs: total,
+        metadata: {
+          purpose: "wallet_topup",
+          topup_amount: numAmount,
+          paystack_charge: charge,
+        },
+      });
+
+      const { data, error } = await supabase.functions.invoke("simulate-topup", {
+        body: { amount: numAmount, charge, reference },
+      });
+
+      if (error || !data?.success) {
+        toast.error(data?.error || error?.message || "Top-up verification failed");
+        return;
+      }
+
+      toast.success(`Wallet topped up with ${formatGHS(numAmount)}`);
+      setAmount("");
+      await refreshProfile();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Payment failed";
+      if (message !== "Payment cancelled") toast.error(message);
+    } finally {
+      setLoading(false);
     }
-    toast.success(`Wallet topped up with ${formatGHS(numAmount)}`);
-    setAmount("");
-    await refreshProfile();
   };
 
   return (
@@ -78,7 +101,7 @@ export default function Wallet() {
 
             <p className="text-xs text-muted-foreground flex items-start gap-2">
               <Info className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
-              Paystack is currently simulated. Funds are credited instantly for testing.
+              Top-up is processed with Paystack and credited after secure server verification.
             </p>
           </div>
         </Card>

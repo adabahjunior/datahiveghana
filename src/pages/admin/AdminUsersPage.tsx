@@ -1,13 +1,21 @@
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<any[]>([]);
+  const [search, setSearch] = useState("");
+  const [resettingUserId, setResettingUserId] = useState<string | null>(null);
+  const [resetTarget, setResetTarget] = useState<any | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   const load = async () => {
     const { data } = await supabase.from("profiles").select("*").order("created_at", { ascending: false }).limit(1000);
@@ -67,12 +75,61 @@ export default function AdminUsersPage() {
     load();
   };
 
+  const submitPasswordOverride = async () => {
+    if (!resetTarget) return;
+    if (newPassword.length < 6) {
+      toast.error("Password must be at least 6 characters");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
+
+    setResettingUserId(resetTarget.user_id);
+    const { data, error } = await supabase.functions.invoke("admin-reset-password", {
+      body: {
+        user_id: resetTarget.user_id,
+        new_password: newPassword,
+      },
+    });
+    setResettingUserId(null);
+
+    if (error || !data?.success) {
+      toast.error(data?.error || error?.message || "Failed to reset password");
+      return;
+    }
+
+    toast.success(`Password updated for ${resetTarget.email}`);
+    setResetTarget(null);
+    setNewPassword("");
+    setConfirmPassword("");
+  };
+
+  const filteredUsers = users.filter((u) => {
+    if (!search.trim()) return true;
+    const q = search.trim().toLowerCase();
+    return (
+      String(u.full_name || "").toLowerCase().includes(q) ||
+      String(u.email || "").toLowerCase().includes(q) ||
+      String(u.phone || "").toLowerCase().includes(q)
+    );
+  });
+
   return (
     <div className="space-y-5">
       <div>
         <h2 className="text-3xl font-bold">Users</h2>
         <p className="text-muted-foreground mt-1">All users including agents.</p>
       </div>
+
+      <Card className="p-4">
+        <Input
+          placeholder="Search by name, email, or phone"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </Card>
 
       <Card className="overflow-hidden">
         <Table>
@@ -86,7 +143,7 @@ export default function AdminUsersPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {users.map((u) => (
+            {filteredUsers.map((u) => (
               <TableRow key={u.id}>
                 <TableCell>{u.full_name || "-"}</TableCell>
                 <TableCell>{u.email}</TableCell>
@@ -94,7 +151,15 @@ export default function AdminUsersPage() {
                 <TableCell>
                   {u.is_agent ? <Badge>Agent Access Enabled</Badge> : <Badge variant="secondary">No Agent Access</Badge>}
                 </TableCell>
-                <TableCell className="space-x-2">
+                <TableCell className="space-x-2 whitespace-nowrap">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={resettingUserId === u.user_id}
+                    onClick={() => setResetTarget(u)}
+                  >
+                    {resettingUserId === u.user_id ? "Updating..." : "Reset Password"}
+                  </Button>
                   {!u.is_agent && (
                     <Button size="sm" onClick={() => grantAgentAccess(u)}>
                       Grant Agent Access
@@ -108,9 +173,66 @@ export default function AdminUsersPage() {
                 </TableCell>
               </TableRow>
             ))}
+            {filteredUsers.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-8">
+                  No users found for your search.
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </Card>
+
+      <Dialog
+        open={!!resetTarget}
+        onOpenChange={(open) => {
+          if (!open) {
+            setResetTarget(null);
+            setNewPassword("");
+            setConfirmPassword("");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Set New Password</DialogTitle>
+            <DialogDescription>
+              This will immediately override the current password for {resetTarget?.email || "this user"}.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="new-password">New Password</Label>
+              <Input
+                id="new-password"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Enter new password"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirm-password">Confirm Password</Label>
+              <Input
+                id="confirm-password"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Re-enter new password"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResetTarget(null)}>Cancel</Button>
+            <Button onClick={submitPasswordOverride} disabled={!resetTarget || resettingUserId === resetTarget.user_id}>
+              {resetTarget && resettingUserId === resetTarget.user_id ? "Updating..." : "Update Password"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { formatGHS, formatVolume, networkLabel, calcPaystackCharge } from "@/lib/format";
+import { startPaystackCheckout } from "@/lib/paystack";
 import { toast } from "sonner";
 import { Loader2, MessageCircle, Phone, ArrowLeft } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -29,6 +30,7 @@ export default function PublicStore() {
   const [phone, setPhone] = useState("");
   const [paying, setPaying] = useState(false);
   const [filter, setFilter] = useState<string>("all");
+  const paystackPublicKey = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY;
 
   useEffect(() => {
     if (!slug) return;
@@ -49,22 +51,49 @@ export default function PublicStore() {
 
   const handleBuy = async () => {
     if (!selected || !phone || phone.length < 10) { toast.error("Enter a valid phone number"); return; }
+    if (!paystackPublicKey) { toast.error("Paystack is not configured"); return; }
+
     setPaying(true);
-    const total = Number(selected.selling_price) + calcPaystackCharge(Number(selected.selling_price));
-    const { data, error } = await supabase.functions.invoke("guest-purchase", {
-      body: {
-        store_id: store.id,
-        package_id: selected.package.id,
-        recipient_phone: phone,
-      },
-    });
-    setPaying(false);
-    if (error || !data?.success) {
-      toast.error(data?.error || error?.message || "Order failed");
-      return;
+    try {
+      const sellingPrice = Number(selected.selling_price);
+      const total = sellingPrice + calcPaystackCharge(sellingPrice);
+      const buyerEmail = `${phone.replace(/\D/g, "") || "guest"}@guest.datahiveghana.com`;
+
+      const reference = await startPaystackCheckout({
+        publicKey: paystackPublicKey,
+        email: buyerEmail,
+        amountInGhs: total,
+        metadata: {
+          purpose: "guest_store_purchase",
+          store_id: store.id,
+          package_id: selected.package.id,
+          recipient_phone: phone,
+        },
+      });
+
+      const { data, error } = await supabase.functions.invoke("guest-purchase", {
+        body: {
+          store_id: store.id,
+          package_id: selected.package.id,
+          recipient_phone: phone,
+          reference,
+        },
+      });
+
+      if (error || !data?.success) {
+        toast.error(data?.error || error?.message || "Order failed");
+        return;
+      }
+
+      toast.success("Order placed via Paystack checkout.");
+      setSelected(null);
+      setPhone("");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Payment failed";
+      if (message !== "Payment cancelled") toast.error(message);
+    } finally {
+      setPaying(false);
     }
-    toast.success("Order placed via Paystack checkout.");
-    setSelected(null); setPhone("");
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;

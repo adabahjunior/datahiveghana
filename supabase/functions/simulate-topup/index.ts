@@ -5,11 +5,36 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const calcPaystackCharge = (amount: number, percent = 1.95, cap = 100): number => {
+  const charge = (amount * percent) / 100;
+  return Math.min(charge, cap);
+};
+
+const verifyPaystackReference = async (reference: string, secretKey: string) => {
+  const res = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${secretKey}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  const payload = await res.json();
+  if (!res.ok || !payload?.status || !payload?.data) {
+    throw new Error(payload?.message || "Paystack verification failed");
+  }
+
+  return payload.data as { status: string; amount: number; currency: string; reference: string };
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const paystackSecretKey = Deno.env.get("PAYSTACK_SECRET_KEY");
+    if (!paystackSecretKey) return json({ error: "Server Paystack secret is not configured" }, 500);
+
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return json({ error: "Unauthorized" }, 401);
 
@@ -17,10 +42,27 @@ Deno.serve(async (req) => {
     const { data: { user } } = await supabase.auth.getUser(token);
     if (!user) return json({ error: "Unauthorized" }, 401);
 
-    const { amount, charge } = await req.json();
+    const { amount, charge, reference } = await req.json();
     if (typeof amount !== "number" || amount <= 0 || amount > 10000) return json({ error: "Invalid amount" }, 400);
+    if (!reference || typeof reference !== "string") return json({ error: "Missing payment reference" }, 400);
 
-    // Credit wallet (simulated payment success)
+    const expectedCharge = calcPaystackCharge(amount);
+    const expectedTotal = amount + expectedCharge;
+
+    const { data: existingTx } = await supabase
+      .from("transactions")
+      .select("id")
+      .eq("reference", reference)
+      .maybeSingle();
+    if (existingTx) return json({ error: "This payment reference has already been used" }, 409);
+
+    const verifiedPayment = await verifyPaystackReference(reference, paystackSecretKey);
+    const paidAmount = Number(verifiedPayment.amount || 0) / 100;
+    if (verifiedPayment.status !== "success") return json({ error: "Payment was not successful" }, 400);
+    if (verifiedPayment.currency !== "GHS") return json({ error: "Invalid payment currency" }, 400);
+    if (paidAmount + 0.01 < expectedTotal) return json({ error: "Paid amount is lower than expected" }, 400);
+
+    // Credit wallet after verified payment success.
     const { data: profile } = await supabase.from("profiles").select("wallet_balance").eq("user_id", user.id).single();
     const newBalance = Number(profile.wallet_balance) + amount;
 
@@ -29,9 +71,10 @@ Deno.serve(async (req) => {
 
     await supabase.from("transactions").insert({
       user_id: user.id, type: "wallet_topup", status: "success",
-      amount, paystack_charge: charge || 0,
-      reference: `SIM-${Date.now()}`,
-      description: `Wallet top-up (simulated)`,
+      amount,
+      paystack_charge: typeof charge === "number" ? charge : expectedCharge,
+      reference,
+      description: "Wallet top-up (Paystack verified)",
     });
 
     return json({ success: true, new_balance: newBalance });

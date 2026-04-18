@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, Eye, EyeOff } from "lucide-react";
 import { z } from "zod";
 
 const signUpSchema = z.object({
@@ -22,6 +22,8 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const [signin, setSignin] = useState({ email: "", password: "" });
   const [signup, setSignup] = useState({ email: "", password: "", full_name: "", phone: "" });
+  const [showSignInPassword, setShowSignInPassword] = useState(false);
+  const [showSignUpPassword, setShowSignUpPassword] = useState(false);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,8 +91,24 @@ export default function Auth() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="si-pw">Password</Label>
-                <Input id="si-pw" type="password" required value={signin.password}
-                  onChange={(e) => setSignin({ ...signin, password: e.target.value })} />
+                <div className="relative">
+                  <Input
+                    id="si-pw"
+                    type={showSignInPassword ? "text" : "password"}
+                    required
+                    value={signin.password}
+                    onChange={(e) => setSignin({ ...signin, password: e.target.value })}
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowSignInPassword((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    aria-label={showSignInPassword ? "Hide password" : "Show password"}
+                  >
+                    {showSignInPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading && <Loader2 className="h-4 w-4 animate-spin" />} Sign In
@@ -117,8 +135,24 @@ export default function Auth() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="su-pw">Password</Label>
-                <Input id="su-pw" type="password" required value={signup.password}
-                  onChange={(e) => setSignup({ ...signup, password: e.target.value })} />
+                <div className="relative">
+                  <Input
+                    id="su-pw"
+                    type={showSignUpPassword ? "text" : "password"}
+                    required
+                    value={signup.password}
+                    onChange={(e) => setSignup({ ...signup, password: e.target.value })}
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowSignUpPassword((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    aria-label={showSignUpPassword ? "Hide password" : "Show password"}
+                  >
+                    {showSignUpPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading && <Loader2 className="h-4 w-4 animate-spin" />} Create Account

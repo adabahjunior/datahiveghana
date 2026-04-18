@@ -14,3 +14,6 @@ verify_jwt = true
 
 [functions.guest-purchase]
 verify_jwt = false
+
+[functions.admin-reset-password]
+verify_jwt = true
