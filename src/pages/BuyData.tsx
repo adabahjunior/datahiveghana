@@ -73,7 +73,7 @@ export default function BuyData() {
       toast.error(data?.error || error?.message || "Purchase failed");
       return;
     }
-    toast.success("Order placed! Data is being delivered.");
+    toast.success("Purchase successful. Your data is on its way.");
     setSelected(null);
     setPhone("");
     await refreshProfile();

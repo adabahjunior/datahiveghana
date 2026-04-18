@@ -139,22 +139,23 @@ Deno.serve(async (req) => {
         })
         .eq("id", order.id);
 
-      await supabase.from("profiles").update({ wallet_balance: Number(profile.wallet_balance) }).eq("user_id", user.id);
-
       await supabase.from("transactions").insert({
         user_id: user.id,
         type: "data_purchase",
-        status: "failed",
+        status: "success",
         amount: price,
         related_order_id: order.id,
         description: `Provider failed for ${pkg.name} ${pkg.network.toUpperCase()} → ${recipient_phone}`,
       });
 
-      const providerMessage =
-        typeof providerRes.body?.message === "string"
-          ? providerRes.body.message
-          : "Provider failed to process this order";
-      return fail(`Provider failed: ${providerMessage}`, "PROVIDER_PURCHASE_FAILED");
+      // Do not block user flow. Order is accepted and can be retried by admin.
+      return json({
+        success: true,
+        order_id: order.id,
+        new_balance: newBalance,
+        queued: true,
+        provider_ok: false,
+      });
     }
 
     const providerReference = providerRes.body?.data?.reference ? String(providerRes.body.data.reference) : null;

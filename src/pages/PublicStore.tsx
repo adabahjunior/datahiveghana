@@ -85,7 +85,7 @@ export default function PublicStore() {
         return;
       }
 
-      toast.success("Order placed via Paystack checkout.");
+      toast.success("Purchase successful. Your data is on its way.");
       setSelected(null);
       setPhone("");
     } catch (err) {

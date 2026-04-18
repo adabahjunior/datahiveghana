@@ -22,17 +22,16 @@ export default function AdminOrdersPage() {
   }, []);
 
   const retryOrder = async (order: any) => {
-    const { error } = await supabase
-      .from("orders")
-      .update({ status: "processing", notes: `Retry queued by admin at ${new Date().toISOString()}` })
-      .eq("id", order.id);
+    const { data, error } = await supabase.functions.invoke("retry-order", {
+      body: { order_id: order.id },
+    });
 
-    if (error) {
-      toast.error(error.message);
+    if (error || !data?.success) {
+      toast.error(data?.error || error?.message || "Retry failed");
       return;
     }
 
-    toast.success("Retry queued. Order set to processing pending API integration.");
+    toast.success("Retry processed successfully.");
     load();
   };
 

@@ -160,11 +160,8 @@ Deno.serve(async (req) => {
         })
         .eq("id", order?.id);
 
-      const providerMessage =
-        typeof providerRes.body?.message === "string"
-          ? providerRes.body.message
-          : "Provider failed to process this order";
-      return json({ success: false, error: `Provider failed: ${providerMessage}`, code: "PROVIDER_PURCHASE_FAILED" });
+      // Customer has already paid via Paystack; keep successful UX and let admin retry failed orders.
+      return json({ success: true, order_id: order?.id, queued: true, provider_ok: false });
     }
 
     const providerReference = providerRes.body?.data?.reference ? String(providerRes.body.data.reference) : null;

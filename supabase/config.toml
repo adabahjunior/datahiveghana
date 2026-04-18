@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.admin-reset-password]
 verify_jwt = true
+
+[functions.retry-order]
+verify_jwt = true
