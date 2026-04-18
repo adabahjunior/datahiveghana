@@ -33,13 +33,42 @@ export default function Report() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!profile) return;
+    const subject = form.subject.trim();
+    const message = form.message.trim();
+    const waNumber = customerCare.replace(/\D/g, "");
+
+    if (!waNumber) {
+      toast.error("Customer care WhatsApp number is not configured yet.");
+      return;
+    }
+
+    const waText = [
+      "*DataHive Issue Report*",
+      `Subject: ${subject}`,
+      `Message: ${message}`,
+      `User: ${profile.full_name || "N/A"}`,
+      `Email: ${profile.email}`,
+      `Phone: ${profile.phone || "N/A"}`,
+    ].join("\n");
+
+    const waUrl = `https://wa.me/${waNumber}?text=${encodeURIComponent(waText)}`;
+    const popup = window.open(waUrl, "_blank", "noopener,noreferrer");
+    if (!popup) {
+      window.location.href = waUrl;
+    }
+
     setLoading(true);
     const { error } = await supabase.from("issue_reports").insert({
-      user_id: profile.user_id, subject: form.subject.trim(), message: form.message.trim(),
+      user_id: profile.user_id,
+      subject,
+      message,
     });
     setLoading(false);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Thanks. We'll get back to you soon.");
+    if (error) {
+      toast.error("Report sent to WhatsApp, but local log failed.");
+      return;
+    }
+    toast.success("Report opened on WhatsApp and logged successfully.");
     setForm({ subject: "", message: "" });
   };
 
