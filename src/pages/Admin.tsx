@@ -39,12 +39,12 @@ export default function Admin() {
 
   useEffect(() => { load(); }, []);
 
-  const updateOrder = async (id: string, status: string) => {
+  const updateOrder = async (id: string, status: "pending" | "processing" | "delivered" | "failed") => {
     const { error } = await supabase.from("orders").update({ status }).eq("id", id);
     if (error) toast.error(error.message); else { toast.success("Updated"); load(); }
   };
 
-  const updateWithdrawal = async (id: string, status: string) => {
+  const updateWithdrawal = async (id: string, status: "pending" | "approved" | "paid" | "rejected") => {
     const { error } = await supabase.from("withdrawals")
       .update({ status, processed_at: new Date().toISOString() }).eq("id", id);
     if (error) toast.error(error.message); else { toast.success("Updated"); load(); }

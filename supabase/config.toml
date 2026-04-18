@@ -1,1 +1,16 @@
 project_id = "cscakblvipadupebrpkh"
+
+[functions.simulate-topup]
+verify_jwt = true
+
+[functions.purchase-data]
+verify_jwt = true
+
+[functions.activate-agent]
+verify_jwt = true
+
+[functions.request-withdrawal]
+verify_jwt = true
+
+[functions.guest-purchase]
+verify_jwt = false
