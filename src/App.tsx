@@ -19,6 +19,8 @@ import Transactions from "./pages/Transactions";
 import BuyData from "./pages/BuyData";
 import MyStore from "./pages/MyStore";
 import MyStoreOrders from "./pages/MyStoreOrders";
+import SubAgents from "./pages/SubAgents";
+import ResultCheckers from "./pages/ResultCheckers";
 import Withdrawal from "./pages/Withdrawal";
 import Report from "./pages/Report";
 import Settings from "./pages/Settings";
@@ -70,6 +72,8 @@ const App = () => (
               <Route path="/my-store" element={<Shell><MyStore /></Shell>} />
               <Route path="/my-store/orders" element={<Shell><ProtectedRoute requireAgent><MyStoreOrders /></ProtectedRoute></Shell>} />
               <Route path="/withdrawal" element={<Shell><ProtectedRoute requireAgent><Withdrawal /></ProtectedRoute></Shell>} />
+              <Route path="/sub-agents" element={<Shell><ProtectedRoute requireAgent><SubAgents /></ProtectedRoute></Shell>} />
+              <Route path="/result-checkers" element={<Shell><ProtectedRoute requireAgent><ResultCheckers /></ProtectedRoute></Shell>} />
               <Route path="/report" element={<Shell><Report /></Shell>} />
               <Route path="/settings" element={<Shell><Settings /></Shell>} />
               <Route path="/admin" element={<AdminShell />}>

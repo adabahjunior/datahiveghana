@@ -188,6 +188,20 @@ export default function MyStore() {
 
   // Agent with store — dashboard
   const storeUrl = `${window.location.origin}/store/${store.slug}`;
+  const groupedPackages = packages.reduce((acc: Record<string, any[]>, pkg: any) => {
+    if (!acc[pkg.network]) acc[pkg.network] = [];
+    acc[pkg.network].push(pkg);
+    return acc;
+  }, {});
+  const networkOrder = ["mtn", "telecel", "airteltigo-ishare", "airteltigo-bigtime"];
+  const sortedNetworks = Object.keys(groupedPackages).sort((a, b) => {
+    const ai = networkOrder.indexOf(a);
+    const bi = networkOrder.indexOf(b);
+    if (ai === -1 && bi === -1) return a.localeCompare(b);
+    if (ai === -1) return 1;
+    if (bi === -1) return -1;
+    return ai - bi;
+  });
 
   return (
     <div className="animate-fade-in">
@@ -215,7 +229,7 @@ export default function MyStore() {
       <div className="grid sm:grid-cols-3 gap-5 mb-8">
         <Card className="p-5"><p className="text-xs text-muted-foreground uppercase">Profit Balance</p><p className="text-2xl font-bold mt-1">{formatGHS(profile.profit_balance)}</p></Card>
         <Card className="p-5"><p className="text-xs text-muted-foreground uppercase">Listed Packages</p><p className="text-2xl font-bold mt-1">{Object.values(storePrices).filter((s) => s.listed).length}</p></Card>
-        <Card className="p-5"><p className="text-xs text-muted-foreground uppercase">Networks</p><p className="text-2xl font-bold mt-1">4</p></Card>
+        <Card className="p-5"><p className="text-xs text-muted-foreground uppercase">Networks</p><p className="text-2xl font-bold mt-1">{sortedNetworks.length}</p></Card>
       </div>
 
       <Card className="overflow-hidden">
@@ -223,39 +237,60 @@ export default function MyStore() {
           <h3 className="font-bold">Catalog & Pricing</h3>
           <p className="text-sm text-muted-foreground mt-1">Set your selling price (must be ≥ agent base price). Toggle to list/unlist.</p>
         </div>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Network</TableHead>
-              <TableHead>Bundle</TableHead>
-              <TableHead>Agent Price</TableHead>
-              <TableHead>Your Price</TableHead>
-              <TableHead>Listed</TableHead>
-              <TableHead></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {packages.map((p) => {
-              const sp = storePrices[p.id] || { price: Number(p.guest_price), listed: true };
-              return (
-                <TableRow key={p.id}>
-                  <TableCell className="text-sm font-medium">{networkLabel[p.network]}</TableCell>
-                  <TableCell className="text-sm">{formatVolume(p.volume_mb)}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{formatGHS(p.agent_price)}</TableCell>
-                  <TableCell>
-                    <Input type="number" step="0.01" min={p.agent_price} value={sp.price}
-                      onChange={(e) => setStorePrices({ ...storePrices, [p.id]: { ...sp, price: parseFloat(e.target.value) || 0 } })}
-                      className="w-24 h-9" />
-                  </TableCell>
-                  <TableCell>
-                    <Switch checked={sp.listed} onCheckedChange={(v) => setStorePrices({ ...storePrices, [p.id]: { ...sp, listed: v } })} />
-                  </TableCell>
-                  <TableCell><Button size="sm" variant="outline" onClick={() => savePrice(p)}>Save</Button></TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+
+        <div className="p-4 md:p-6 space-y-6">
+          {sortedNetworks.map((network) => (
+            <div key={network} className="border border-border rounded-xl overflow-hidden">
+              <div className="px-4 py-3 bg-muted/40 border-b border-border">
+                <h4 className="font-semibold text-sm">{networkLabel[network]}</h4>
+              </div>
+
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Bundle</TableHead>
+                    <TableHead>Agent Price</TableHead>
+                    <TableHead>Your Price</TableHead>
+                    <TableHead>Profit</TableHead>
+                    <TableHead>Listed</TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {groupedPackages[network].map((p) => {
+                    const sp = storePrices[p.id] || { price: Number(p.guest_price), listed: true };
+                    const profit = Number(sp.price) - Number(p.agent_price);
+                    return (
+                      <TableRow key={p.id}>
+                        <TableCell className="text-sm font-medium">{formatVolume(p.volume_mb)}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{formatGHS(p.agent_price)}</TableCell>
+                        <TableCell>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min={p.agent_price}
+                            value={sp.price}
+                            onChange={(e) => setStorePrices({ ...storePrices, [p.id]: { ...sp, price: parseFloat(e.target.value) || 0 } })}
+                            className="w-24 h-9"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <span className={profit >= 0 ? "text-success font-medium text-sm" : "text-destructive font-medium text-sm"}>
+                            {profit >= 0 ? "+" : ""}{formatGHS(profit)}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <Switch checked={sp.listed} onCheckedChange={(v) => setStorePrices({ ...storePrices, [p.id]: { ...sp, listed: v } })} />
+                        </TableCell>
+                        <TableCell><Button size="sm" variant="outline" onClick={() => savePrice(p)}>Save</Button></TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          ))}
+        </div>
       </Card>
     </div>
   );
