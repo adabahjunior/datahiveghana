@@ -1,6 +1,7 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Loader2 } from "lucide-react";
+import { AccountRevokedView } from "@/components/AccountRevokedView";
 
 export const ProtectedRoute = ({
   children,
@@ -11,7 +12,7 @@ export const ProtectedRoute = ({
   requireAdmin?: boolean;
   requireAgent?: boolean;
 }) => {
-  const { user, loading, isAdmin, isAgent } = useAuth();
+  const { user, loading, isAdmin, isAgent, profile } = useAuth();
 
   if (loading) {
     return (
@@ -21,6 +22,7 @@ export const ProtectedRoute = ({
     );
   }
   if (!user) return <Navigate to="/auth" replace />;
+  if (profile?.is_revoked && !isAdmin) return <AccountRevokedView />;
   if (requireAdmin && !isAdmin) return <Navigate to="/dashboard" replace />;
   if (requireAgent && !isAgent) return <Navigate to="/my-store" replace />;
   return <>{children}</>;

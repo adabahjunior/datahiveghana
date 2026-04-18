@@ -11,7 +11,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-    const { store_id, package_id, recipient_phone, selling_price } = await req.json();
+    const { store_id, package_id, recipient_phone } = await req.json();
 
     if (!store_id || !package_id || !recipient_phone || recipient_phone.length < 10) {
       return json({ error: "Invalid input" }, 400);
@@ -20,12 +20,18 @@ Deno.serve(async (req) => {
     const [{ data: store }, { data: pkg }, { data: storePrice }] = await Promise.all([
       supabase.from("agent_stores").select("*").eq("id", store_id).eq("is_active", true).single(),
       supabase.from("data_packages").select("*").eq("id", package_id).eq("is_active", true).single(),
-      supabase.from("store_package_prices").select("*").eq("store_id", store_id).eq("package_id", package_id).maybeSingle(),
+      supabase
+        .from("store_package_prices")
+        .select("*")
+        .eq("store_id", store_id)
+        .eq("package_id", package_id)
+        .eq("is_listed", true)
+        .maybeSingle(),
     ]);
-    if (!store || !pkg) return json({ error: "Not found" }, 404);
+    if (!store || !pkg || !storePrice) return json({ error: "Package not available in this store" }, 404);
 
-    // Trust server-side prices, not client
-    const sellingPrice = storePrice ? Number(storePrice.selling_price) : Number(pkg.guest_price);
+    // Always derive price from server-side store pricing; never trust client input.
+    const sellingPrice = Number(storePrice.selling_price);
     const costPrice = Number(pkg.agent_price);
     const profit = Math.max(0, sellingPrice - costPrice);
 
@@ -39,7 +45,7 @@ Deno.serve(async (req) => {
       cost_price: costPrice,
       agent_profit: profit,
       status: "pending",
-      paid_via: "paystack_simulated",
+      paid_via: "paystack",
     }).select().single();
 
     // Credit agent profit

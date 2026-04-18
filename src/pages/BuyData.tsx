@@ -116,7 +116,9 @@ export default function BuyData() {
                 <span className="text-xs uppercase tracking-wider text-muted-foreground">{networkLabel[network]}</span>
               </div>
               <p className="text-3xl font-bold">{formatVolume(p.volume_mb)}</p>
-              {p.validity_days && <p className="text-sm text-muted-foreground mt-1">Valid for {p.validity_days} days</p>}
+              <p className="text-sm text-muted-foreground mt-1">
+                {p.validity_days ? `Valid for ${p.validity_days} days` : "Non-Expiry"}
+              </p>
               <div className="my-5 pt-5 border-t border-border">
                 <p className="text-2xl font-bold">{formatGHS(priceFor(p))}</p>
                 {!isAgent && <p className="text-xs text-muted-foreground line-through mt-0.5">Agent: {formatGHS(p.agent_price)}</p>}
@@ -135,7 +137,7 @@ export default function BuyData() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Confirm Purchase</DialogTitle>
-            <DialogDescription>Enter the phone number that will receive the data bundle.</DialogDescription>
+            <DialogDescription>Enter the phone number that will receive the data bundle. Payment is from your wallet.</DialogDescription>
           </DialogHeader>
           {selected && (
             <div className="space-y-5">
@@ -154,7 +156,7 @@ export default function BuyData() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setSelected(null)}>Cancel</Button>
             <Button onClick={handleBuy} disabled={paying}>
-              {paying && <Loader2 className="h-4 w-4 animate-spin" />} Confirm & Pay
+              {paying && <Loader2 className="h-4 w-4 animate-spin" />} Confirm & Pay from Wallet
             </Button>
           </DialogFooter>
         </DialogContent>

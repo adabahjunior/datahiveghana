@@ -224,6 +224,7 @@ export type Database = {
           full_name: string | null
           id: string
           is_agent: boolean
+          is_revoked: boolean
           phone: string | null
           profit_balance: number
           updated_at: string
@@ -236,6 +237,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           is_agent?: boolean
+          is_revoked?: boolean
           phone?: string | null
           profit_balance?: number
           updated_at?: string
@@ -248,6 +250,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           is_agent?: boolean
+          is_revoked?: boolean
           phone?: string | null
           profit_balance?: number
           updated_at?: string

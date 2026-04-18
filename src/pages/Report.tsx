@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -14,6 +14,21 @@ export default function Report() {
   const { profile } = useAuth();
   const [form, setForm] = useState({ subject: "", message: "" });
   const [loading, setLoading] = useState(false);
+  const [customerCare, setCustomerCare] = useState("");
+
+  useEffect(() => {
+    const loadCustomerCare = async () => {
+      const { data } = await supabase
+        .from("app_settings")
+        .select("value")
+        .eq("key", "customer_care_contact")
+        .maybeSingle();
+
+      if (typeof data?.value === "string") setCustomerCare(data.value);
+    };
+
+    loadCustomerCare();
+  }, []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,6 +47,11 @@ export default function Report() {
     <div className="animate-fade-in">
       <PageHeader title="Report an Issue" description="Tell us what went wrong. Our team responds within 24 hours." />
       <Card className="p-8 max-w-xl">
+        {customerCare && (
+          <div className="mb-5 rounded-md bg-muted p-3 text-sm">
+            Customer Care: <span className="font-semibold">{customerCare}</span>
+          </div>
+        )}
         <form onSubmit={submit} className="space-y-5">
           <div className="space-y-2">
             <Label>Subject</Label>

@@ -12,6 +12,7 @@ import {
   Sheet, SheetContent, SheetTrigger,
 } from "@/components/ui/sheet";
 import { formatGHS } from "@/lib/format";
+import { LoginNotificationPopup } from "@/components/LoginNotificationPopup";
 
 const buyDataItems = [
   { to: "/buy/mtn", label: "MTN Data" },
@@ -126,7 +127,7 @@ const SidebarContent = ({ onNavigate }: { onNavigate?: () => void }) => {
         {isAdmin && (
           <div className="pt-4 mt-4 border-t border-sidebar-border">
             <p className="px-4 py-1 text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Admin</p>
-            <NavItem to="/admin" icon={Shield} label="Admin Dashboard" end />
+            <NavItem to="/admin/overview" icon={Shield} label="Admin Dashboard" end />
           </div>
         )}
       </nav>
@@ -160,6 +161,7 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
 
   return (
     <div className="min-h-screen flex w-full bg-background">
+      <LoginNotificationPopup />
       {/* Desktop sidebar */}
       <aside className="hidden lg:block w-72 border-r border-sidebar-border fixed inset-y-0 left-0 z-30">
         <SidebarContent />

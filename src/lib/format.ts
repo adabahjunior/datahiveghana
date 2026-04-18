@@ -5,8 +5,9 @@ export const formatGHS = (amount: number | string): string => {
 };
 
 export const formatVolume = (mb: number): string => {
-  if (mb >= 1024) return `${(mb / 1024).toFixed(mb % 1024 === 0 ? 0 : 1)} GB`;
-  return `${mb} MB`;
+  const gb = mb / 1024;
+  const pretty = Number(gb.toFixed(2)).toString();
+  return `${pretty} GB`;
 };
 
 export const formatDate = (d: string | Date): string => {

@@ -53,8 +53,9 @@ export default function PublicStore() {
     const total = Number(selected.selling_price) + calcPaystackCharge(Number(selected.selling_price));
     const { data, error } = await supabase.functions.invoke("guest-purchase", {
       body: {
-        store_id: store.id, package_id: selected.package.id,
-        recipient_phone: phone, selling_price: Number(selected.selling_price),
+        store_id: store.id,
+        package_id: selected.package.id,
+        recipient_phone: phone,
       },
     });
     setPaying(false);
@@ -62,7 +63,7 @@ export default function PublicStore() {
       toast.error(data?.error || error?.message || "Order failed");
       return;
     }
-    toast.success("Order placed! (Simulated payment)");
+    toast.success("Order placed via Paystack checkout.");
     setSelected(null); setPhone("");
   };
 
@@ -116,7 +117,9 @@ export default function PublicStore() {
                 <span className="text-xs uppercase tracking-wider text-muted-foreground">{networkLabel[i.package.network]}</span>
               </div>
               <p className="text-3xl font-bold">{formatVolume(i.package.volume_mb)}</p>
-              {i.package.validity_days && <p className="text-sm text-muted-foreground mt-1">Valid {i.package.validity_days} days</p>}
+              <p className="text-sm text-muted-foreground mt-1">
+                {i.package.validity_days ? `Valid ${i.package.validity_days} days` : "Non-Expiry"}
+              </p>
               <p className="text-2xl font-bold mt-5 mb-4 pt-5 border-t border-border">{formatGHS(i.selling_price)}</p>
               <Button className="w-full" onClick={() => setSelected(i)}>Buy Now</Button>
             </Card>
@@ -146,7 +149,7 @@ export default function PublicStore() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Confirm Purchase</DialogTitle>
-            <DialogDescription>Enter the recipient's phone number.</DialogDescription>
+            <DialogDescription>Enter the recipient's phone number. You will checkout directly with Paystack.</DialogDescription>
           </DialogHeader>
           {selected && (
             <div className="space-y-4">
@@ -166,7 +169,7 @@ export default function PublicStore() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setSelected(null)}>Cancel</Button>
             <Button onClick={handleBuy} disabled={paying}>
-              {paying && <Loader2 className="h-4 w-4 animate-spin" />} Confirm & Pay
+              {paying && <Loader2 className="h-4 w-4 animate-spin" />} Pay with Paystack
             </Button>
           </DialogFooter>
         </DialogContent>
