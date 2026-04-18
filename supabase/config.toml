@@ -7,7 +7,7 @@ verify_jwt = true
 verify_jwt = false
 
 [functions.activate-agent]
-verify_jwt = true
+verify_jwt = false
 
 [functions.request-withdrawal]
 verify_jwt = true
