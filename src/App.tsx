@@ -61,7 +61,7 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <Routes>
-              <Route path="/" element={<Landing />} />
+              <Route path="/" element={<MaintenanceGate><Landing /></MaintenanceGate>} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/store/:slug" element={<MaintenanceGate><PublicStore /></MaintenanceGate>} />
 
@@ -88,7 +88,7 @@ const App = () => (
                 <Route path="site-settings" element={<AdminSiteSettingsPage />} />
               </Route>
 
-              <Route path="*" element={<NotFound />} />
+              <Route path="*" element={<MaintenanceGate><NotFound /></MaintenanceGate>} />
             </Routes>
             <FloatingWhatsAppButton />
           </BrowserRouter>

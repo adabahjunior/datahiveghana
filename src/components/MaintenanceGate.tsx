@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { Loader2 } from "lucide-react";
 
 type MaintenanceValue = {
   enabled?: boolean;
@@ -71,7 +72,15 @@ export const MaintenanceGate = ({ children }: { children: React.ReactNode }) => 
     };
   }, []);
 
-  if (loading || isAdmin || !maintenance.enabled) return <>{children}</>;
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (isAdmin || !maintenance.enabled) return <>{children}</>;
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-background">
