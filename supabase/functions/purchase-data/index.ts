@@ -150,7 +150,11 @@ Deno.serve(async (req) => {
         description: `Provider failed for ${pkg.name} ${pkg.network.toUpperCase()} → ${recipient_phone}`,
       });
 
-      return fail("Provider failed to process this order", "PROVIDER_PURCHASE_FAILED");
+      const providerMessage =
+        typeof providerRes.body?.message === "string"
+          ? providerRes.body.message
+          : "Provider failed to process this order";
+      return fail(`Provider failed: ${providerMessage}`, "PROVIDER_PURCHASE_FAILED");
     }
 
     const providerReference = providerRes.body?.data?.reference ? String(providerRes.body.data.reference) : null;

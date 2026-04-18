@@ -160,7 +160,11 @@ Deno.serve(async (req) => {
         })
         .eq("id", order?.id);
 
-      return json({ success: false, error: "Provider failed to process this order", code: "PROVIDER_PURCHASE_FAILED" });
+      const providerMessage =
+        typeof providerRes.body?.message === "string"
+          ? providerRes.body.message
+          : "Provider failed to process this order";
+      return json({ success: false, error: `Provider failed: ${providerMessage}`, code: "PROVIDER_PURCHASE_FAILED" });
     }
 
     const providerReference = providerRes.body?.data?.reference ? String(providerRes.body.data.reference) : null;
