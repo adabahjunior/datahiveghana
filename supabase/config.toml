@@ -1,7 +1,7 @@
 project_id = "cscakblvipadupebrpkh"
 
 [functions.simulate-topup]
-verify_jwt = true
+verify_jwt = false
 
 [functions.purchase-data]
 verify_jwt = false
