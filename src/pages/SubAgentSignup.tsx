@@ -194,30 +194,33 @@ export default function SubAgentSignup() {
 
   if (!store) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4 py-10">
-        <Card className="p-8 w-full max-w-xl text-center">
+      <div className="min-h-screen bg-background">
+        <section className="max-w-5xl mx-auto px-6 lg:px-10 py-12">
+          <Card className="p-8 w-full max-w-xl mx-auto text-center">
           <h1 className="text-2xl font-bold">Subagent Program</h1>
           <p className="text-muted-foreground mt-2">Store not found.</p>
           <Button asChild className="mt-6"><Link to="/">Go Home</Link></Button>
-        </Card>
+          </Card>
+        </section>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-10">
-      <div className="w-full max-w-2xl">
+    <div className="min-h-screen bg-background">
+      <section className="max-w-5xl mx-auto px-6 lg:px-10 py-12">
+        <div className="w-full max-w-2xl mx-auto">
         <Card className="p-6 sm:p-8 border-primary/30">
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold">{store.store_name} Subagent Program</h1>
             <p className="text-muted-foreground mt-2">Create your account on this page, pay activation, and unlock your subagent dashboard.</p>
           </div>
 
-          <div className="flex items-start gap-3 mb-5">
-            <ShieldCheck className="h-5 w-5 text-primary mt-0.5" />
-            <div>
+          <div className="flex flex-col items-center text-center gap-2 mb-5">
+            <ShieldCheck className="h-5 w-5 text-primary" />
+            <div className="space-y-1">
               <p className="font-semibold">Subagent Activation Fee</p>
-              <p className="text-sm text-muted-foreground mt-1">One-time fee to unlock your subagent account under this store.</p>
+              <p className="text-sm text-muted-foreground">One-time fee to unlock your subagent account under this store.</p>
             </div>
           </div>
 
@@ -227,7 +230,7 @@ export default function SubAgentSignup() {
           </div>
 
           {!user && (
-            <div className="rounded-lg border border-border p-4 mb-8">
+            <div className="rounded-lg border border-border p-4 mb-8 max-w-lg mx-auto w-full">
               <div className="flex gap-2 mb-4">
                 <Button
                   type="button"
@@ -288,7 +291,7 @@ export default function SubAgentSignup() {
           {!canActivate ? (
             <p className="text-sm text-muted-foreground text-center">{blockedReason}</p>
           ) : (
-            <div className="grid sm:grid-cols-2 gap-3">
+            <div className="grid sm:grid-cols-2 gap-3 max-w-lg mx-auto">
               <Button variant="outline" onClick={activateViaWallet} disabled={processingWallet || processingPaystack}>
                 {processingWallet && <Loader2 className="h-4 w-4 animate-spin" />} Pay {formatGHS(totalFee)} from Wallet
               </Button>
@@ -300,7 +303,9 @@ export default function SubAgentSignup() {
 
           <p className="text-xs text-muted-foreground text-center mt-6">After successful payment, your subagent dashboard will unlock automatically.</p>
         </Card>
+        </div>
+      </section>
       </div>
-    </div>
+    
   );
 }
