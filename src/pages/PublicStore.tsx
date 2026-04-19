@@ -31,6 +31,7 @@ export default function PublicStore() {
   const [paying, setPaying] = useState(false);
   const [filter, setFilter] = useState<string>("all");
   const paystackPublicKey = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY;
+  const subAgentBaseFee = 30;
 
   useEffect(() => {
     if (!slug) return;
@@ -130,6 +131,22 @@ export default function PublicStore() {
           <h2 className="text-3xl lg:text-4xl font-bold">Buy data instantly</h2>
           <p className="text-muted-foreground">Choose a bundle below. Delivery is automatic.</p>
         </div>
+
+        <Card className="p-5 mb-8 border-primary/30 bg-primary/5">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-wider text-muted-foreground">Subagent Program</p>
+              <h3 className="font-bold text-lg mt-1">Become a Subagent under {store.store_name}</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                Signup fee: {formatGHS(subAgentBaseFee)} base + {formatGHS(Number(store.subagent_fee_addon || 0))} addon = {" "}
+                <span className="font-semibold text-foreground">{formatGHS(subAgentBaseFee + Number(store.subagent_fee_addon || 0))}</span>
+              </p>
+            </div>
+            <Button asChild>
+              <Link to={`/store/${store.slug}/subagent`}>Become a Subagent</Link>
+            </Button>
+          </div>
+        </Card>
 
         <div className="flex flex-wrap gap-2 mb-8">
           <Button variant={filter === "all" ? "default" : "outline"} size="sm" onClick={() => setFilter("all")}>All</Button>

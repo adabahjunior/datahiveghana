@@ -17,7 +17,7 @@ import { Switch } from "@/components/ui/switch";
 const ACTIVATION_FEE = 80;
 
 export default function MyStore() {
-  const { profile, isAgent, refreshProfile } = useAuth();
+  const { profile, isAgent, isSubAgent, isSeller, refreshProfile } = useAuth();
   const [store, setStore] = useState<any>(null);
   const [activating, setActivating] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -25,6 +25,7 @@ export default function MyStore() {
   const [form, setForm] = useState({ store_name: "", support_phone: "", whatsapp_link: "" });
   const [storeDetailsForm, setStoreDetailsForm] = useState({ support_phone: "", whatsapp_link: "" });
   const [packages, setPackages] = useState<any[]>([]);
+  const [subagentBasePrices, setSubagentBasePrices] = useState<Record<string, number>>({});
   const [storePrices, setStorePrices] = useState<Record<string, { price: number; listed: boolean }>>({});
 
   useEffect(() => {
@@ -43,16 +44,45 @@ export default function MyStore() {
   }, [profile]);
 
   const loadCatalog = async (storeId: string) => {
+    const basePriceMap: Record<string, number> = {};
+
+    if (profile && isSubAgent) {
+      const { data: assignment } = await supabase
+        .from("subagent_assignments")
+        .select("parent_agent_id,status")
+        .eq("subagent_user_id", profile.user_id)
+        .eq("status", "active")
+        .maybeSingle();
+
+      if (assignment?.parent_agent_id) {
+        const { data: prices } = await supabase
+          .from("subagent_package_prices")
+          .select("package_id,base_price,is_active")
+          .eq("parent_agent_id", assignment.parent_agent_id)
+          .eq("is_active", true);
+
+        (prices || []).forEach((row: any) => {
+          basePriceMap[row.package_id] = Number(row.base_price);
+        });
+      }
+    }
+
+    setSubagentBasePrices(basePriceMap);
+
     const [{ data: pkgs }, { data: sp }] = await Promise.all([
       supabase.from("data_packages").select("*").eq("is_active", true).order("network").order("display_order"),
       supabase.from("store_package_prices").select("*").eq("store_id", storeId),
     ]);
+
     setPackages(pkgs || []);
     const map: Record<string, { price: number; listed: boolean }> = {};
     (pkgs || []).forEach((p: any) => {
+      const fallbackBase = isSubAgent
+        ? Number(basePriceMap[p.id] ?? p.agent_price)
+        : Number(p.guest_price);
       const existing = (sp || []).find((x: any) => x.package_id === p.id);
       map[p.id] = {
-        price: existing ? Number(existing.selling_price) : Number(p.guest_price),
+        price: existing ? Number(existing.selling_price) : fallbackBase,
         listed: existing ? existing.is_listed : true,
       };
     });
@@ -95,8 +125,12 @@ export default function MyStore() {
   const savePrice = async (pkg: any) => {
     if (!store) return;
     const sp = storePrices[pkg.id];
-    if (sp.price < Number(pkg.agent_price)) {
-      toast.error(`Selling price must be at least ${formatGHS(pkg.agent_price)}`);
+    const minimumBase = isSubAgent
+      ? Number(subagentBasePrices[pkg.id] ?? pkg.agent_price)
+      : Number(pkg.agent_price);
+
+    if (sp.price < minimumBase) {
+      toast.error(`Selling price must be at least ${formatGHS(minimumBase)}`);
       return;
     }
     const { error } = await supabase.from("store_package_prices").upsert({
@@ -146,8 +180,8 @@ export default function MyStore() {
 
   if (!profile) return null;
 
-  // Not yet an agent — benefits & activation
-  if (!isAgent) {
+  // Not yet a seller (agent or subagent) — show agent activation path
+  if (!isSeller) {
     return (
       <div className="animate-fade-in">
         <PageHeader title="Become an Agent" description="Unlock wholesale prices and run your own data store." />
@@ -199,7 +233,7 @@ export default function MyStore() {
   }
 
   // Agent without store — create form
-  if (isAgent && !store) {
+  if (isSeller && !store) {
     return (
       <div className="animate-fade-in">
         <PageHeader title="Create Your Store" description="Set up your branded mini-website. Customers will buy from you here." />
@@ -253,7 +287,7 @@ export default function MyStore() {
     <div className="animate-fade-in">
       <PageHeader
         title={store.store_name}
-        description="Manage your store catalog and pricing."
+        description={isSubAgent ? "Manage your subagent store pricing and margins." : "Manage your store catalog and pricing."}
         action={
           <Button variant="outline" asChild>
             <a href={storeUrl} target="_blank" rel="noreferrer">View Store <ExternalLink className="h-3 w-3 ml-2" /></a>
@@ -312,7 +346,11 @@ export default function MyStore() {
       <Card className="overflow-hidden">
         <div className="p-6 border-b border-border">
           <h3 className="font-bold">Catalog & Pricing</h3>
-          <p className="text-sm text-muted-foreground mt-1">Set your selling price (must be ≥ agent base price). Toggle to list/unlist.</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            {isSubAgent
+              ? "Set your selling price (must be >= your assigned subagent base price). Toggle to list/unlist."
+              : "Set your selling price (must be >= agent base price). Toggle to list/unlist."}
+          </p>
         </div>
 
         <div className="p-4 md:p-6 space-y-6">
@@ -326,7 +364,7 @@ export default function MyStore() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Bundle</TableHead>
-                    <TableHead>Agent Price</TableHead>
+                    <TableHead>{isSubAgent ? "Your Base Price" : "Agent Price"}</TableHead>
                     <TableHead>Your Price</TableHead>
                     <TableHead>Profit</TableHead>
                     <TableHead>Listed</TableHead>
@@ -336,16 +374,19 @@ export default function MyStore() {
                 <TableBody>
                   {groupedPackages[network].map((p) => {
                     const sp = storePrices[p.id] || { price: Number(p.guest_price), listed: true };
-                    const profit = Number(sp.price) - Number(p.agent_price);
+                    const packageBase = isSubAgent
+                      ? Number(subagentBasePrices[p.id] ?? p.agent_price)
+                      : Number(p.agent_price);
+                    const profit = Number(sp.price) - packageBase;
                     return (
                       <TableRow key={p.id}>
                         <TableCell className="text-sm font-medium">{formatVolume(p.volume_mb)}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{formatGHS(p.agent_price)}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{formatGHS(packageBase)}</TableCell>
                         <TableCell>
                           <Input
                             type="number"
                             step="0.01"
-                            min={p.agent_price}
+                            min={packageBase}
                             value={sp.price}
                             onChange={(e) => setStorePrices({ ...storePrices, [p.id]: { ...sp, price: parseFloat(e.target.value) || 0 } })}
                             className="w-24 h-9"

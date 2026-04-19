@@ -22,6 +22,7 @@ export type Database = {
           is_active: boolean
           slug: string
           store_name: string
+          subagent_fee_addon: number
           support_phone: string
           updated_at: string
           whatsapp_link: string | null
@@ -33,6 +34,7 @@ export type Database = {
           is_active?: boolean
           slug: string
           store_name: string
+          subagent_fee_addon?: number
           support_phone: string
           updated_at?: string
           whatsapp_link?: string | null
@@ -44,6 +46,7 @@ export type Database = {
           is_active?: boolean
           slug?: string
           store_name?: string
+          subagent_fee_addon?: number
           support_phone?: string
           updated_at?: string
           whatsapp_link?: string | null
@@ -301,6 +304,88 @@ export type Database = {
           },
         ]
       }
+      subagent_assignments: {
+        Row: {
+          created_at: string
+          id: string
+          paid_amount: number
+          paid_via: string
+          parent_agent_id: string
+          source_store_id: string | null
+          status: string
+          subagent_user_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          paid_amount?: number
+          paid_via?: string
+          parent_agent_id: string
+          source_store_id?: string | null
+          status?: string
+          subagent_user_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          paid_amount?: number
+          paid_via?: string
+          parent_agent_id?: string
+          source_store_id?: string | null
+          status?: string
+          subagent_user_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subagent_assignments_source_store_id_fkey"
+            columns: ["source_store_id"]
+            isOneToOne: false
+            referencedRelation: "agent_stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subagent_package_prices: {
+        Row: {
+          base_price: number
+          created_at: string
+          id: string
+          is_active: boolean
+          package_id: string
+          parent_agent_id: string
+          updated_at: string
+        }
+        Insert: {
+          base_price: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          package_id: string
+          parent_agent_id: string
+          updated_at?: string
+        }
+        Update: {
+          base_price?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          package_id?: string
+          parent_agent_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subagent_package_prices_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "data_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transactions: {
         Row: {
           amount: number
@@ -422,7 +507,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "user" | "agent" | "admin"
+      app_role: "user" | "agent" | "sub_agent" | "admin"
       network_type:
         | "mtn"
         | "telecel"

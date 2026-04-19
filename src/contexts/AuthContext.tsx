@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
-type AppRole = "user" | "agent" | "admin";
+type AppRole = "user" | "agent" | "sub_agent" | "admin";
 
 type Profile = {
   id: string;
@@ -23,6 +23,8 @@ type Ctx = {
   roles: AppRole[];
   isAdmin: boolean;
   isAgent: boolean;
+  isSubAgent: boolean;
+  isSeller: boolean;
   loading: boolean;
   refreshProfile: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -87,6 +89,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         roles,
         isAdmin: roles.includes("admin"),
         isAgent: roles.includes("agent") || profile?.is_agent === true,
+        isSubAgent: roles.includes("sub_agent"),
+        isSeller: roles.includes("agent") || roles.includes("sub_agent") || profile?.is_agent === true,
         loading,
         refreshProfile,
         signOut,

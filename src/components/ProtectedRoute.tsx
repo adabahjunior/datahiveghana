@@ -12,7 +12,7 @@ export const ProtectedRoute = ({
   requireAdmin?: boolean;
   requireAgent?: boolean;
 }) => {
-  const { user, loading, isAdmin, isAgent, profile } = useAuth();
+  const { user, loading, isAdmin, isSeller, profile } = useAuth();
 
   if (loading) {
     return (
@@ -24,6 +24,6 @@ export const ProtectedRoute = ({
   if (!user) return <Navigate to="/auth" replace />;
   if (profile?.is_revoked && !isAdmin) return <AccountRevokedView />;
   if (requireAdmin && !isAdmin) return <Navigate to="/dashboard" replace />;
-  if (requireAgent && !isAgent) return <Navigate to="/my-store" replace />;
+  if (requireAgent && !isSeller) return <Navigate to="/my-store" replace />;
   return <>{children}</>;
 };

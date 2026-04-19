@@ -9,7 +9,7 @@ import { formatGHS, formatDateTime, networkLabel, formatVolume } from "@/lib/for
 import { Wallet, TrendingUp, ShoppingBag, Store, ArrowUpRight } from "lucide-react";
 
 export default function Dashboard() {
-  const { profile, isAgent } = useAuth();
+  const { profile, isSeller } = useAuth();
   const [stats, setStats] = useState({ totalSpent: 0, totalOrders: 0, storeRevenue: 0, storeOrders: 0 });
   const [recent, setRecent] = useState<any[]>([]);
 
@@ -30,7 +30,7 @@ export default function Dashboard() {
       const totalOrders = allOrders?.length || 0;
 
       let storeRevenue = 0, storeOrders = 0;
-      if (isAgent) {
+      if (isSeller) {
         const { data: store } = await supabase
           .from("agent_stores").select("id").eq("agent_id", profile.user_id).maybeSingle();
         if (store) {
@@ -41,7 +41,7 @@ export default function Dashboard() {
       }
       setStats({ totalSpent, totalOrders, storeRevenue, storeOrders });
     })();
-  }, [profile, isAgent]);
+  }, [profile, isSeller]);
 
   if (!profile) return null;
 
@@ -56,7 +56,7 @@ export default function Dashboard() {
         <StatCard icon={Wallet} label="Wallet Balance" value={formatGHS(profile.wallet_balance)} accent />
         <StatCard icon={ShoppingBag} label="Total Orders" value={stats.totalOrders.toString()} />
         <StatCard icon={TrendingUp} label="Total Spent" value={formatGHS(stats.totalSpent)} />
-        {isAgent ? (
+        {isSeller ? (
           <StatCard icon={Store} label="Store Revenue" value={formatGHS(stats.storeRevenue)} sub={`${stats.storeOrders} orders`} />
         ) : (
           <StatCard icon={Store} label="Become an Agent" value="Unlock" sub="Run your own store" link="/my-store" />
@@ -97,7 +97,7 @@ export default function Dashboard() {
             <Button variant="outline" className="w-full justify-start" asChild><Link to="/wallet">Top Up Wallet</Link></Button>
             <Button variant="outline" className="w-full justify-start" asChild><Link to="/buy/mtn">Buy MTN Data</Link></Button>
             <Button variant="outline" className="w-full justify-start" asChild><Link to="/buy/telecel">Buy Telecel</Link></Button>
-            {isAgent && <Button variant="outline" className="w-full justify-start" asChild><Link to="/my-store">Manage Store</Link></Button>}
+            {isSeller && <Button variant="outline" className="w-full justify-start" asChild><Link to="/my-store">Manage Store</Link></Button>}
           </div>
         </Card>
       </div>

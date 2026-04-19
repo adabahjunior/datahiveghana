@@ -94,8 +94,33 @@ Deno.serve(async (req) => {
 
     const profileMatchColumn = profile.user_id === user.id ? "user_id" : "id";
 
-    const isAgent = profile.is_agent || (!rolesError && (roles || []).some((r: any) => r.role === "agent"));
-    const price = isAgent ? Number(pkg.agent_price) : Number(pkg.guest_price);
+    const roleList = !rolesError ? (roles || []).map((r: any) => r.role) : [];
+    const isSubAgent = roleList.includes("sub_agent");
+    const isAgent = profile.is_agent || roleList.includes("agent");
+
+    let price = isAgent ? Number(pkg.agent_price) : Number(pkg.guest_price);
+    if (isSubAgent) {
+      const { data: assignment } = await supabase
+        .from("subagent_assignments")
+        .select("parent_agent_id,status")
+        .eq("subagent_user_id", user.id)
+        .eq("status", "active")
+        .maybeSingle();
+
+      if (!assignment) return fail("No active subagent assignment found", "SUBAGENT_NOT_ASSIGNED");
+
+      const { data: subagentPrice } = await supabase
+        .from("subagent_package_prices")
+        .select("base_price,is_active")
+        .eq("parent_agent_id", assignment.parent_agent_id)
+        .eq("package_id", pkg.id)
+        .eq("is_active", true)
+        .maybeSingle();
+
+      if (!subagentPrice) return fail("Subagent base price is not set for this package", "SUBAGENT_PRICE_NOT_SET");
+      price = Number(subagentPrice.base_price);
+    }
+
     if (!Number.isFinite(price) || price <= 0) return fail("Invalid package price", "INVALID_PRICE");
 
     if (Number(profile.wallet_balance) < price) return fail("Insufficient wallet balance. Please top up.", "INSUFFICIENT_BALANCE");
