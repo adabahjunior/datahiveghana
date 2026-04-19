@@ -24,7 +24,22 @@ const verifyPaystackReference = async (reference: string, secretKey: string) => 
     throw new Error(payload?.message || "Paystack verification failed");
   }
 
-  return payload.data as { status: string; amount: number; currency: string; reference: string };
+  return payload.data as {
+    status: string;
+    amount: number;
+    currency: string;
+    reference: string;
+    metadata?: Record<string, unknown>;
+  };
+};
+
+const toNumber = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
 };
 
 Deno.serve(async (req) => {
@@ -44,11 +59,7 @@ Deno.serve(async (req) => {
     if (authError || !user) return fail("Unauthorized", "UNAUTHORIZED");
 
     const { amount, charge, reference } = await req.json();
-    if (typeof amount !== "number" || amount <= 0 || amount > 10000) return fail("Invalid amount", "INVALID_AMOUNT");
     if (!reference || typeof reference !== "string") return fail("Missing payment reference", "INVALID_REFERENCE");
-
-    const expectedCharge = calcPaystackCharge(amount);
-    const expectedTotal = amount + expectedCharge;
 
     const { data: existingTx } = await supabase
       .from("transactions")
@@ -61,6 +72,21 @@ Deno.serve(async (req) => {
     const paidAmount = Number(verifiedPayment.amount || 0) / 100;
     if (verifiedPayment.status !== "success") return fail("Payment was not successful", "PAYMENT_NOT_SUCCESSFUL");
     if (verifiedPayment.currency !== "GHS") return fail("Invalid payment currency", "INVALID_CURRENCY");
+
+    const metadata = verifiedPayment.metadata || {};
+    const bodyAmount = toNumber(amount);
+    const metadataAmount = toNumber(metadata.topup_amount);
+    const resolvedAmount = bodyAmount && bodyAmount > 0 ? bodyAmount : metadataAmount;
+    if (!resolvedAmount || resolvedAmount <= 0 || resolvedAmount > 10000) {
+      return fail("Top-up amount missing. Enter amount and retry with the same reference.", "MISSING_TOPUP_AMOUNT");
+    }
+
+    const expectedCharge = calcPaystackCharge(resolvedAmount);
+    const expectedTotal = resolvedAmount + expectedCharge;
+    const bodyCharge = toNumber(charge);
+    const metadataCharge = toNumber(metadata.paystack_charge);
+    const resolvedCharge = bodyCharge ?? metadataCharge ?? expectedCharge;
+
     if (paidAmount + 0.01 < expectedTotal) return fail("Paid amount is lower than expected", "AMOUNT_MISMATCH");
 
     // Credit wallet after verified payment success.
@@ -78,7 +104,7 @@ Deno.serve(async (req) => {
 
     if (!profile) return fail("Profile not found", "PROFILE_NOT_FOUND");
 
-    const newBalance = Number(profile.wallet_balance) + amount;
+    const newBalance = Number(profile.wallet_balance) + resolvedAmount;
     const profileMatchColumn = profile.user_id === user.id ? "user_id" : "id";
 
     const { error: upErr } = await supabase
@@ -89,8 +115,8 @@ Deno.serve(async (req) => {
 
     const { error: txErr } = await supabase.from("transactions").insert({
       user_id: user.id, type: "wallet_topup", status: "success",
-      amount,
-      paystack_charge: typeof charge === "number" ? charge : expectedCharge,
+      amount: resolvedAmount,
+      paystack_charge: resolvedCharge,
       reference,
       description: "Wallet top-up (Paystack verified)",
     });

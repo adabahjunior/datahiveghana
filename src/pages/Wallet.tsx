@@ -14,7 +14,10 @@ import { Wallet as WalletIcon, Loader2, Info } from "lucide-react";
 export default function Wallet() {
   const { profile, refreshProfile } = useAuth();
   const [amount, setAmount] = useState("");
+  const [recoveryReference, setRecoveryReference] = useState("");
+  const [recoveryAmount, setRecoveryAmount] = useState("");
   const [loading, setLoading] = useState(false);
+  const [recovering, setRecovering] = useState(false);
   const paystackPublicKey = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY;
 
   const numAmount = parseFloat(amount) || 0;
@@ -56,6 +59,39 @@ export default function Wallet() {
       if (message !== "Payment cancelled") toast.error(message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRecoverTopUp = async () => {
+    const reference = recoveryReference.trim();
+    if (!reference) {
+      toast.error("Enter your Paystack reference");
+      return;
+    }
+
+    setRecovering(true);
+    try {
+      const parsedAmount = recoveryAmount.trim() ? Number(recoveryAmount) : undefined;
+      const payload: Record<string, unknown> = { reference };
+      if (typeof parsedAmount === "number" && Number.isFinite(parsedAmount) && parsedAmount > 0) {
+        payload.amount = parsedAmount;
+      }
+
+      const { data, error } = await supabase.functions.invoke("simulate-topup", {
+        body: payload,
+      });
+
+      if (error || !data?.success) {
+        toast.error(data?.error || error?.message || "Top-up recovery failed");
+        return;
+      }
+
+      toast.success("Previous top-up recovered successfully");
+      setRecoveryReference("");
+      setRecoveryAmount("");
+      await refreshProfile();
+    } finally {
+      setRecovering(false);
     }
   };
 
@@ -103,6 +139,37 @@ export default function Wallet() {
               <Info className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
               Top-up is processed with Paystack and credited after secure server verification.
             </p>
+
+            <div className="pt-4 border-t border-border space-y-3">
+              <p className="text-sm font-semibold">Recover Previous Top-up</p>
+              <p className="text-xs text-muted-foreground">
+                If an older payment succeeded but was not credited, enter the Paystack reference to recover it.
+              </p>
+              <div className="space-y-2">
+                <Label htmlFor="recovery-reference">Paystack Reference</Label>
+                <Input
+                  id="recovery-reference"
+                  placeholder="e.g. T1234567890"
+                  value={recoveryReference}
+                  onChange={(e) => setRecoveryReference(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="recovery-amount">Top-up Amount (optional)</Label>
+                <Input
+                  id="recovery-amount"
+                  type="number"
+                  step="0.01"
+                  min="1"
+                  placeholder="e.g. 50"
+                  value={recoveryAmount}
+                  onChange={(e) => setRecoveryAmount(e.target.value)}
+                />
+              </div>
+              <Button onClick={handleRecoverTopUp} disabled={recovering || !recoveryReference.trim()} variant="outline" className="w-full">
+                {recovering && <Loader2 className="h-4 w-4 animate-spin" />} Recover Top-up
+              </Button>
+            </div>
           </div>
         </Card>
       </div>
