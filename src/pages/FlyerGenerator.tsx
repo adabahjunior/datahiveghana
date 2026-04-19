@@ -7,85 +7,185 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { networkLabel } from "@/lib/format";
 import { Link } from "react-router-dom";
 import { Download, Loader2, Sparkles, WandSparkles } from "lucide-react";
 import { toast } from "sonner";
+import bgSky from "@/assets/flyer-bg-sky.jpg";
+import socialIcons from "@/assets/flyer-social-icons.png";
+import person1 from "@/assets/flyer-person-1.png";
+import person2 from "@/assets/flyer-person-2.png";
+import person3 from "@/assets/flyer-person-3.png";
 
 type NetworkKey = "mtn" | "telecel" | "airteltigo_ishare" | "airteltigo_bigtime";
 
-type TemplateStyle = {
-  id: string;
-  name: string;
-  bg: string;
-  cardBg: string;
-  text: string;
-  mute: string;
-  strip: string;
-};
+type ColumnNetwork = "mtn" | "telecel" | "airteltigo";
 
-type FlyerSize = "1080x1080" | "1080x1350";
-
-const templates: TemplateStyle[] = [
-  {
-    id: "urban-sky",
-    name: "Urban Sky",
-    bg: "linear-gradient(130deg, #4cc9f0 0%, #90e0ef 38%, #e0fbfc 100%)",
-    cardBg: "rgba(255,255,255,0.92)",
-    text: "#0b1f3a",
-    mute: "#224b75",
-    strip: "linear-gradient(90deg, #1d4ed8, #0ea5e9)",
-  },
-  {
-    id: "midnight-pro",
-    name: "Midnight Pro",
-    bg: "linear-gradient(135deg, #0f172a 0%, #1e293b 44%, #334155 100%)",
-    cardBg: "rgba(255,255,255,0.95)",
-    text: "#06122a",
-    mute: "#203a5f",
-    strip: "linear-gradient(90deg, #ef4444, #f59e0b)",
-  },
-  {
-    id: "sunset-drive",
-    name: "Sunset Drive",
-    bg: "linear-gradient(132deg, #fef08a 0%, #fde68a 30%, #fca5a5 100%)",
-    cardBg: "rgba(255,255,255,0.96)",
-    text: "#1f2937",
-    mute: "#374151",
-    strip: "linear-gradient(90deg, #f97316, #ef4444)",
-  },
+const personOptions = [
+  { id: "yellow-man", label: "Yellow Beanie", src: person1 },
+  { id: "red-phone-woman", label: "Red Phone Lady", src: person2 },
+  { id: "dread-man", label: "Dreadlocks Man", src: person3 },
 ];
 
-const networkBlocks: Record<NetworkKey, { title: string; color: string; light: string }> = {
-  mtn: { title: "MTN", color: "#facc15", light: "#fff8d6" },
-  telecel: { title: "Telecel", color: "#ef4444", light: "#ffe0df" },
-  airteltigo_ishare: { title: "AirtelTigo iShare", color: "#2563eb", light: "#dce9ff" },
-  airteltigo_bigtime: { title: "AirtelTigo BigTime", color: "#1d4ed8", light: "#dbeafe" },
-};
-
-const order: NetworkKey[] = ["mtn", "airteltigo_ishare", "airteltigo_bigtime", "telecel"];
-
-const tonePool = {
-  trusted: {
-    heads: ["Your Trusted Data Plug", "Affordable Data That Works", "Steady Bundles On All Networks"],
-    subs: ["Fast delivery with clear pricing", "Reliable delivery in minutes", "Smart prices for daily users"],
+const headlineStyles = [
+  {
+    id: "non-expiry",
+    label: "Non-Expiry Bundle",
+    headline: "Get Cheap\nNon-Expiry\nData Bundle\nOn All Networks",
+    headlineColor: "#1d4ed8",
   },
-  urgent: {
-    heads: ["Out of Data? We Have You", "Need Data Now?", "Quick Top-Up, No Stress"],
-    subs: ["Delivery starts in 10 to 20 minutes", "Buy now and stay connected", "Get back online fast"],
+  {
+    id: "trusted-plug",
+    label: "Trusted Data Plug",
+    headline: "Your Trusted\nData Plug",
+    headlineColor: "#0f172a",
   },
-  premium: {
-    heads: ["Premium Data Deals", "Pro Data Bundles", "Elite Data Storefront"],
-    subs: ["Clean pricing. Fast dispatch.", "Branded delivery experience", "Built for agents who sell big"],
+  {
+    id: "affordable",
+    label: "Affordable Data",
+    headline: "Get Your\nAffordable Data\nBundles\nOn All Networks",
+    headlineColor: "#0b3d91",
   },
-};
-
-type ToneKey = keyof typeof tonePool;
+  {
+    id: "out-of-data",
+    label: "Out Of Data",
+    headline: "Out Of\nMobile DATA?\nWe Got You!",
+    headlineColor: "#dc2626",
+  },
+];
 
 const toPrice = (value: number) => {
   const num = Number(value || 0);
   const rounded = Math.round(num * 100) / 100;
   return Number.isInteger(rounded) ? `${rounded}` : rounded.toFixed(2);
+};
+
+// Map raw network keys -> column buckets (combine AT iShare + BigTime into one AirtelTigo column)
+const toColumnNetwork = (net: NetworkKey): ColumnNetwork => {
+  if (net === "mtn") return "mtn";
+  if (net === "telecel") return "telecel";
+  return "airteltigo";
+};
+
+type Row = { volume_mb: number; selling_price: number };
+
+const NetworkColumn = ({
+  network,
+  rows,
+  maxRows,
+}: {
+  network: ColumnNetwork;
+  rows: Row[];
+  maxRows: number;
+}) => {
+  const palette = {
+    mtn: { bg: "#FFCC08", text: "#000", header: "#FFCC08", logoBg: "#FFCC08", border: "#000" },
+    telecel: { bg: "#E60000", text: "#fff", header: "#E60000", logoBg: "#fff", border: "#fff" },
+    airteltigo: { bg: "#0033A0", text: "#fff", header: "#0033A0", logoBg: "#fff", border: "#fff" },
+  }[network];
+
+  const Logo = () => {
+    if (network === "mtn") {
+      return (
+        <div
+          style={{
+            background: "#FFCC08",
+            color: "#000",
+            border: "3px solid #000",
+            borderRadius: 999,
+            padding: "6px 22px",
+            fontWeight: 900,
+            fontSize: 22,
+            letterSpacing: "0.05em",
+            fontFamily: "Arial, sans-serif",
+          }}
+        >
+          MTN
+        </div>
+      );
+    }
+    if (network === "telecel") {
+      return (
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <div
+            style={{
+              background: "#E60000",
+              color: "#fff",
+              borderRadius: 999,
+              width: 32,
+              height: 32,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontWeight: 900,
+              fontSize: 22,
+              fontFamily: "Georgia, serif",
+              border: "2px solid #fff",
+            }}
+          >
+            t
+          </div>
+          <span style={{ color: "#E60000", fontWeight: 800, fontSize: 18, fontStyle: "italic" }}>telecel</span>
+        </div>
+      );
+    }
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+        <span style={{ color: "#E60000", fontWeight: 900, fontSize: 22, fontStyle: "italic" }}>airtel</span>
+        <span style={{ color: "#0033A0", fontWeight: 900, fontSize: 22, fontStyle: "italic" }}>tigo</span>
+      </div>
+    );
+  };
+
+  return (
+    <div
+      style={{
+        background: palette.bg,
+        borderRadius: 14,
+        padding: 12,
+        boxShadow: "0 8px 20px rgba(0,0,0,0.25)",
+        display: "flex",
+        flexDirection: "column",
+        gap: 6,
+      }}
+    >
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: 10,
+          padding: "10px 8px",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          marginBottom: 4,
+        }}
+      >
+        <Logo />
+      </div>
+
+      {rows.slice(0, maxRows).map((row, idx) => (
+        <div
+          key={idx}
+          style={{
+            background: "rgba(255,255,255,0.96)",
+            borderRadius: 6,
+            padding: "5px 10px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            fontFamily: "'Arial Black', Arial, sans-serif",
+            fontWeight: 900,
+            fontSize: 15,
+            color: "#000",
+            letterSpacing: "0.02em",
+          }}
+        >
+          <span>{Math.round(row.volume_mb / 1024)}GB</span>
+          <span style={{ opacity: 0.6 }}>-</span>
+          <span>GH₵ {toPrice(row.selling_price)}</span>
+        </div>
+      ))}
+    </div>
+  );
 };
 
 export default function FlyerGenerator() {
@@ -94,12 +194,12 @@ export default function FlyerGenerator() {
   const [downloading, setDownloading] = useState(false);
   const [store, setStore] = useState<any>(null);
   const [items, setItems] = useState<any[]>([]);
-  const [templateId, setTemplateId] = useState(templates[0].id);
-  const [flyerSize, setFlyerSize] = useState<FlyerSize>("1080x1080");
-  const [tone, setTone] = useState<ToneKey>("trusted");
-  const [headline, setHeadline] = useState("Affordable Data Bundles On All Networks");
-  const [subline, setSubline] = useState("Fast delivery and clean prices");
-  const [deliveryNote, setDeliveryNote] = useState("Delivery within 10 to 20 minutes");
+
+  const [styleId, setStyleId] = useState(headlineStyles[0].id);
+  const [personId, setPersonId] = useState(personOptions[0].id);
+  const [headline, setHeadline] = useState(headlineStyles[0].headline);
+  const [tagline, setTagline] = useState("Delivery within 10 to 20 minutes");
+  const [note, setNote] = useState("#It's non-expiry");
   const previewRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -107,26 +207,22 @@ export default function FlyerGenerator() {
       setLoading(false);
       return;
     }
-
     (async () => {
       const { data: s } = await supabase
         .from("agent_stores")
         .select("*")
         .eq("agent_id", profile.user_id)
         .maybeSingle();
-
       setStore(s);
       if (!s) {
         setLoading(false);
         return;
       }
-
       const { data } = await supabase
         .from("store_package_prices")
         .select("selling_price, is_listed, package:data_packages(*)")
         .eq("store_id", s.id)
         .eq("is_listed", true);
-
       const active = (data || []).filter((row: any) => row.package?.is_active);
       setItems(active);
       setLoading(false);
@@ -134,49 +230,33 @@ export default function FlyerGenerator() {
   }, [profile, isAgent]);
 
   const grouped = useMemo(() => {
-    const map: Record<NetworkKey, Array<{ name: string; volume_mb: number; selling_price: number }>> = {
-      mtn: [],
-      telecel: [],
-      airteltigo_ishare: [],
-      airteltigo_bigtime: [],
-    };
-
+    const map: Record<ColumnNetwork, Row[]> = { mtn: [], telecel: [], airteltigo: [] };
     items.forEach((row: any) => {
       const net = row.package?.network as NetworkKey;
-      if (!map[net]) return;
-      map[net].push({
-        name: row.package.name,
+      if (!net) return;
+      const col = toColumnNetwork(net);
+      map[col].push({
         volume_mb: Number(row.package.volume_mb),
         selling_price: Number(row.selling_price),
       });
     });
-
     Object.keys(map).forEach((key) => {
-      map[key as NetworkKey].sort((a, b) => a.volume_mb - b.volume_mb);
+      map[key as ColumnNetwork].sort((a, b) => a.volume_mb - b.volume_mb);
     });
-
     return map;
   }, [items]);
 
-  const activeNetworks = useMemo(() => order.filter((net) => grouped[net].length > 0), [grouped]);
+  const selectedStyle = headlineStyles.find((s) => s.id === styleId) || headlineStyles[0];
+  const selectedPerson = personOptions.find((p) => p.id === personId) || personOptions[0];
 
-  const selectedTemplate = templates.find((t) => t.id === templateId) || templates[0];
-  const flyerWidth = 1080;
-  const flyerHeight = flyerSize === "1080x1080" ? 1080 : 1350;
-  const compactMode = flyerSize === "1080x1080";
-  const maxRowsPerNetwork = compactMode ? 7 : 11;
-
-  const aiRefreshCopy = () => {
-    const pool = tonePool[tone];
-    const nextHead = pool.heads[Math.floor(Math.random() * pool.heads.length)];
-    const nextSub = pool.subs[Math.floor(Math.random() * pool.subs.length)];
-    setHeadline(nextHead);
-    setSubline(nextSub);
+  const applyStyle = (id: string) => {
+    setStyleId(id);
+    const s = headlineStyles.find((x) => x.id === id);
+    if (s) setHeadline(s.headline);
   };
 
   const downloadPng = async () => {
     if (!previewRef.current || !store) return;
-
     try {
       setDownloading(true);
       const canvas = await html2canvas(previewRef.current, {
@@ -184,14 +264,13 @@ export default function FlyerGenerator() {
         useCORS: true,
         backgroundColor: null,
       });
-
       const link = document.createElement("a");
-      link.download = `${store.slug || "store"}-${flyerSize}.png`;
+      link.download = `${store.slug || "store"}-flyer.png`;
       link.href = canvas.toDataURL("image/png");
       link.click();
-      toast.success("Flyer downloaded successfully");
-    } catch (error) {
-      console.error(error);
+      toast.success("Flyer downloaded");
+    } catch (e) {
+      console.error(e);
       toast.error("Could not download flyer");
     } finally {
       setDownloading(false);
@@ -225,7 +304,7 @@ export default function FlyerGenerator() {
       <div className="animate-fade-in">
         <PageHeader title="Flyer Generator" description="Create your store first, then generate your flyer." />
         <Card className="p-8 max-w-xl">
-          <p className="text-sm text-muted-foreground">Your flyer pulls data bundles, prices, and contacts from your store setup.</p>
+          <p className="text-sm text-muted-foreground">Your flyer pulls bundles, prices, and contacts from your store.</p>
           <Button asChild className="mt-4">
             <Link to="/my-store">Set Up My Store</Link>
           </Button>
@@ -234,93 +313,88 @@ export default function FlyerGenerator() {
     );
   }
 
+  const flyerWidth = 1080;
+  const flyerHeight = 1350;
+  // Maximum rows so all 3 columns stay visually balanced and inside the card
+  const maxRows = 14;
+
   return (
     <div className="animate-fade-in">
       <PageHeader
         title="AI Flyer Generator"
-        description="Auto-build a branded sales flyer from your store pricing and contact details."
+        description="Generate professional sales flyers in the trending Ghana data-reseller style."
       />
 
       <div className="grid xl:grid-cols-[360px_1fr] gap-6 items-start">
         <Card className="p-5 space-y-5 sticky top-6">
           <div>
             <h3 className="font-semibold flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-primary" /> Flyer Controls
+              <Sparkles className="h-4 w-4 text-primary" /> Flyer Studio
             </h3>
-            <p className="text-xs text-muted-foreground mt-1">Everything below updates your flyer in real-time.</p>
+            <p className="text-xs text-muted-foreground mt-1">Switch styles, models, and copy. Updates live.</p>
           </div>
 
           <div className="space-y-2">
-            <Label>Template Style</Label>
-            <div className="grid grid-cols-3 gap-2">
-              {templates.map((tpl) => (
-                <button
-                  key={tpl.id}
-                  onClick={() => setTemplateId(tpl.id)}
-                  className={`rounded-lg border p-2 text-xs font-medium transition-colors ${
-                    templateId === tpl.id ? "border-primary bg-primary/10" : "border-border hover:border-primary/40"
-                  }`}
-                  type="button"
-                >
-                  {tpl.name}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Flyer Size</Label>
+            <Label>Headline Style</Label>
             <div className="grid grid-cols-2 gap-2">
-              {(["1080x1080", "1080x1350"] as FlyerSize[]).map((size) => (
+              {headlineStyles.map((s) => (
                 <button
-                  key={size}
-                  onClick={() => setFlyerSize(size)}
-                  className={`rounded-lg border p-2 text-xs font-medium transition-colors ${
-                    flyerSize === size ? "border-primary bg-primary/10" : "border-border hover:border-primary/40"
-                  }`}
+                  key={s.id}
                   type="button"
+                  onClick={() => applyStyle(s.id)}
+                  className={`rounded-lg border p-2 text-xs font-medium text-left transition-colors ${
+                    styleId === s.id ? "border-primary bg-primary/10" : "border-border hover:border-primary/40"
+                  }`}
                 >
-                  {size}
+                  {s.label}
                 </button>
               ))}
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label>AI Tone</Label>
+            <Label>Featured Person</Label>
             <div className="grid grid-cols-3 gap-2">
-              {(["trusted", "urgent", "premium"] as ToneKey[]).map((option) => (
+              {personOptions.map((p) => (
                 <button
-                  key={option}
+                  key={p.id}
                   type="button"
-                  onClick={() => setTone(option)}
-                  className={`rounded-lg border p-2 text-xs capitalize transition-colors ${
-                    tone === option ? "border-primary bg-primary/10" : "border-border"
+                  onClick={() => setPersonId(p.id)}
+                  className={`rounded-lg border overflow-hidden transition-colors ${
+                    personId === p.id ? "border-primary ring-2 ring-primary/40" : "border-border"
                   }`}
                 >
-                  {option}
+                  <img src={p.src} alt={p.label} className="w-full h-20 object-cover bg-muted" />
+                  <div className="p-1 text-[10px] text-center">{p.label}</div>
                 </button>
               ))}
             </div>
-            <Button type="button" variant="outline" className="w-full" onClick={aiRefreshCopy}>
-              <WandSparkles className="h-4 w-4 mr-2" /> Regenerate AI Copy
-            </Button>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="headline">Headline</Label>
-            <Input id="headline" value={headline} onChange={(e) => setHeadline(e.target.value)} />
+            <Label htmlFor="headline">Headline (use line breaks)</Label>
+            <textarea
+              id="headline"
+              value={headline}
+              onChange={(e) => setHeadline(e.target.value)}
+              rows={4}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="subline">Subline</Label>
-            <Input id="subline" value={subline} onChange={(e) => setSubline(e.target.value)} />
+            <Label htmlFor="tagline">Tagline</Label>
+            <Input id="tagline" value={tagline} onChange={(e) => setTagline(e.target.value)} />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="delivery">Delivery Note</Label>
-            <Input id="delivery" value={deliveryNote} onChange={(e) => setDeliveryNote(e.target.value)} />
+            <Label htmlFor="note">Note Line</Label>
+            <Input id="note" value={note} onChange={(e) => setNote(e.target.value)} />
           </div>
+
+          <Button type="button" variant="outline" className="w-full" onClick={() => applyStyle(styleId)}>
+            <WandSparkles className="h-4 w-4 mr-2" /> Reset Headline
+          </Button>
 
           <Button type="button" className="w-full" onClick={downloadPng} disabled={downloading || items.length === 0}>
             {downloading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
@@ -334,150 +408,240 @@ export default function FlyerGenerator() {
             style={{
               width: flyerWidth,
               height: flyerHeight,
-              boxSizing: "border-box",
-              background: selectedTemplate.bg,
-              color: selectedTemplate.text,
-              borderRadius: 24,
-              padding: compactMode ? 22 : 30,
-              fontFamily: "'Trebuchet MS', 'Segoe UI', sans-serif",
               position: "relative",
               margin: "0 auto",
-              boxShadow: "0 20px 50px rgba(0,0,0,0.25)",
+              borderRadius: 24,
               overflow: "hidden",
+              boxShadow: "0 30px 60px rgba(0,0,0,0.3)",
+              fontFamily: "'Arial Black', Arial, sans-serif",
+              backgroundImage: `url(${bgSky})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
-              <div>
-                <div style={{ fontSize: compactMode ? 38 : 48, lineHeight: 1.05, fontWeight: 900, letterSpacing: "-0.02em", maxWidth: 680 }}>
-                  {store.store_name}
-                </div>
-                <div style={{ fontSize: compactMode ? 44 : 54, lineHeight: 1.02, fontWeight: 900, marginTop: 8, textTransform: "uppercase" }}>
-                  {headline}
-                </div>
-                <p style={{ marginTop: 8, fontSize: compactMode ? 18 : 22, color: selectedTemplate.mute }}>{subline}</p>
-              </div>
-              <div
-                style={{
-                  background: "#ffffff",
-                  borderRadius: 16,
-                  padding: compactMode ? "8px 12px" : "10px 14px",
-                  fontWeight: 800,
-                  fontSize: compactMode ? 15 : 18,
-                  color: "#1e293b",
-                  border: "2px solid rgba(0,0,0,0.08)",
-                }}
-              >
-                DATA SERVICES
-              </div>
-            </div>
-
-            <div
-              style={{
-                marginTop: compactMode ? 14 : 22,
-                background: selectedTemplate.strip,
-                borderRadius: 14,
-                color: "#fff",
-                fontSize: compactMode ? 18 : 22,
-                fontWeight: 800,
-                letterSpacing: "0.01em",
-                padding: "10px 16px",
-              }}
-            >
-              {deliveryNote}
-            </div>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns:
-                  activeNetworks.length <= 2
-                    ? "repeat(2, minmax(0, 1fr))"
-                    : activeNetworks.length === 3
-                      ? "repeat(3, minmax(0, 1fr))"
-                      : "repeat(2, minmax(0, 1fr))",
-                gap: 14,
-                marginTop: compactMode ? 14 : 20,
-              }}
-            >
-              {activeNetworks.map((net) => (
-                  <div
-                    key={net}
-                    style={{
-                      background: selectedTemplate.cardBg,
-                      borderRadius: 18,
-                      padding: 10,
-                      border: `3px solid ${networkBlocks[net].color}`,
-                      overflow: "hidden",
-                    }}
-                  >
-                    <div
-                      style={{
-                        background: networkBlocks[net].color,
-                        color: net === "mtn" ? "#111" : "#fff",
-                        fontWeight: 900,
-                        textAlign: "center",
-                        borderRadius: 12,
-                        padding: "8px 10px",
-                        fontSize: compactMode ? 17 : 20,
-                      }}
-                    >
-                      {networkLabel[net]}
-                    </div>
-                    <div style={{ marginTop: 8, display: "grid", gap: 6 }}>
-                      {grouped[net].slice(0, maxRowsPerNetwork).map((row, idx) => (
-                        <div
-                          key={`${net}-${idx}`}
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            gap: 6,
-                            fontWeight: 800,
-                            fontSize: compactMode ? 16 : 20,
-                            padding: compactMode ? "5px 8px" : "6px 9px",
-                            borderRadius: 8,
-                            background: idx % 2 === 0 ? "#ffffff" : networkBlocks[net].light,
-                          }}
-                        >
-                          <span>{Math.round(row.volume_mb / 1024)}GB</span>
-                          <span>GHS {toPrice(row.selling_price)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-            </div>
-
-            <div
-              style={{
-                marginTop: compactMode ? 12 : 18,
-                background: "rgba(255,255,255,0.94)",
-                borderRadius: 18,
-                padding: compactMode ? 12 : 16,
-              }}
-            >
-              <div style={{ fontSize: compactMode ? 28 : 36, fontWeight: 900, color: "#dc2626", lineHeight: 1 }}>Buy Affordable Data</div>
-              <div style={{ marginTop: 6, fontSize: compactMode ? 16 : 20, color: "#1f2937", fontWeight: 700 }}>Non-expiry bundles on major networks</div>
-              <div style={{ marginTop: compactMode ? 8 : 10, fontSize: compactMode ? 20 : 26, fontWeight: 900 }}>Call / WhatsApp: {store.support_phone}</div>
-              <div style={{ marginTop: 6, fontSize: compactMode ? 14 : 16, color: "#475569" }}>
-                {store.whatsapp_link ? `WhatsApp Group: ${store.whatsapp_link}` : "Instant support available"}
-              </div>
-              <div style={{ marginTop: 8, fontSize: compactMode ? 13 : 15, color: "#64748b", fontWeight: 700 }}>
-                Powered by DataHive Ghana | {new Date().toLocaleDateString("en-GH")}
-              </div>
-            </div>
-
+            {/* Soft white overlay for readability */}
             <div
               style={{
                 position: "absolute",
-                right: 24,
-                top: 24,
-                width: 170,
-                height: 170,
-                borderRadius: "999px",
-                background: "radial-gradient(circle at 40% 35%, rgba(255,255,255,0.8), rgba(255,255,255,0.08))",
-                border: "2px solid rgba(255,255,255,0.35)",
+                inset: 0,
+                background:
+                  "linear-gradient(180deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.15) 35%, rgba(255,255,255,0) 60%, rgba(255,255,255,0.4) 100%)",
               }}
             />
+
+            {/* Decorative social icons - top left */}
+            <img
+              src={socialIcons}
+              alt=""
+              style={{
+                position: "absolute",
+                top: -20,
+                left: -30,
+                width: 240,
+                height: 240,
+                objectFit: "contain",
+                opacity: 0.95,
+                transform: "rotate(-8deg)",
+              }}
+              crossOrigin="anonymous"
+            />
+
+            {/* Decorative social icons - right edge */}
+            <img
+              src={socialIcons}
+              alt=""
+              style={{
+                position: "absolute",
+                top: 320,
+                right: -70,
+                width: 230,
+                height: 230,
+                objectFit: "contain",
+                opacity: 0.9,
+                transform: "rotate(15deg)",
+              }}
+              crossOrigin="anonymous"
+            />
+
+            {/* Headline */}
+            <div
+              style={{
+                position: "absolute",
+                top: 38,
+                left: 50,
+                right: 280,
+                zIndex: 5,
+                color: selectedStyle.headlineColor,
+                fontFamily: "'Arial Black', Arial, sans-serif",
+                fontWeight: 900,
+                fontSize: 64,
+                lineHeight: 0.98,
+                letterSpacing: "-0.01em",
+                whiteSpace: "pre-line",
+                textShadow: "0 2px 0 rgba(255,255,255,0.6)",
+              }}
+            >
+              {headline}
+            </div>
+
+            {/* Store badge - top right */}
+            <div
+              style={{
+                position: "absolute",
+                top: 52,
+                right: 50,
+                background: "#FFD700",
+                color: "#0b1f3a",
+                borderRadius: "50%",
+                width: 180,
+                height: 180,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                textAlign: "center",
+                padding: 14,
+                fontWeight: 900,
+                fontSize: 22,
+                lineHeight: 1.05,
+                boxShadow: "0 8px 20px rgba(0,0,0,0.25)",
+                border: "4px solid #fff",
+                zIndex: 6,
+              }}
+            >
+              {store.store_name}
+            </div>
+
+            {/* Tagline strip */}
+            <div
+              style={{
+                position: "absolute",
+                top: 360,
+                left: 50,
+                right: 50,
+                background: "linear-gradient(90deg, #FFD700, #FFB300)",
+                color: "#000",
+                padding: "10px 20px",
+                borderRadius: 10,
+                fontSize: 22,
+                fontWeight: 900,
+                textAlign: "center",
+                boxShadow: "0 6px 14px rgba(0,0,0,0.2)",
+                zIndex: 5,
+              }}
+            >
+              Kindly note: {tagline}
+            </div>
+
+            {/* 3 Network Columns */}
+            <div
+              style={{
+                position: "absolute",
+                top: 430,
+                left: 40,
+                right: 40,
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr 1fr",
+                gap: 14,
+                zIndex: 4,
+              }}
+            >
+              <NetworkColumn network="mtn" rows={grouped.mtn} maxRows={maxRows} />
+              <NetworkColumn network="airteltigo" rows={grouped.airteltigo} maxRows={maxRows} />
+              <NetworkColumn network="telecel" rows={grouped.telecel} maxRows={maxRows} />
+            </div>
+
+            {/* Person image - bottom right */}
+            <img
+              src={selectedPerson.src}
+              alt=""
+              style={{
+                position: "absolute",
+                bottom: 0,
+                right: -40,
+                height: 480,
+                width: "auto",
+                objectFit: "contain",
+                zIndex: 7,
+                filter: "drop-shadow(0 -10px 30px rgba(0,0,0,0.3))",
+              }}
+              crossOrigin="anonymous"
+            />
+
+            {/* Note line - bottom left */}
+            <div
+              style={{
+                position: "absolute",
+                bottom: 200,
+                left: 50,
+                color: "#dc2626",
+                fontWeight: 900,
+                fontSize: 28,
+                fontStyle: "italic",
+                zIndex: 6,
+                textShadow: "0 2px 0 rgba(255,255,255,0.6)",
+              }}
+            >
+              {note}
+            </div>
+
+            {/* Bullet info - bottom left */}
+            <div
+              style={{
+                position: "absolute",
+                bottom: 100,
+                left: 50,
+                width: 460,
+                color: "#0b1f3a",
+                fontSize: 16,
+                fontWeight: 800,
+                lineHeight: 1.5,
+                zIndex: 6,
+              }}
+            >
+              <div>• Delivery is within 10 to 20 minutes</div>
+              <div>• Does not work for agent SIMs</div>
+              <div>• Does not work on broadband SIMs</div>
+              <div>• Avoid SIMs with outstanding airtime</div>
+            </div>
+
+            {/* Contact strip - very bottom */}
+            <div
+              style={{
+                position: "absolute",
+                bottom: 24,
+                left: 50,
+                width: 460,
+                background: "linear-gradient(90deg, #16a34a, #15803d)",
+                color: "#fff",
+                padding: "12px 18px",
+                borderRadius: 12,
+                fontSize: 22,
+                fontWeight: 900,
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                boxShadow: "0 8px 18px rgba(0,0,0,0.3)",
+                zIndex: 8,
+              }}
+            >
+              <div
+                style={{
+                  background: "#fff",
+                  color: "#16a34a",
+                  borderRadius: "50%",
+                  width: 36,
+                  height: 36,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 22,
+                }}
+              >
+                ✆
+              </div>
+              <span>{store.support_phone}</span>
+            </div>
           </div>
         </div>
       </div>

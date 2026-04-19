@@ -13,7 +13,7 @@ type Profile = {
   wallet_balance: number;
   profit_balance: number;
   is_agent: boolean;
-  is_revoked: boolean;
+  is_revoked?: boolean;
 };
 
 type Ctx = {
