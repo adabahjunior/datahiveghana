@@ -29,6 +29,46 @@ const verifyPaystackReference = async (reference: string, secretKey: string) => 
   return payload.data as { status: string; amount: number; currency: string; reference: string };
 };
 
+const creditParentAddonProfit = async (
+  supabase: ReturnType<typeof createClient>,
+  parentAgentId: string,
+  addonAmount: number,
+  subagentUserId: string,
+  storeName: string,
+) => {
+  if (addonAmount <= 0) return { success: true };
+
+  const { data: parentProfile, error: parentProfileError } = await supabase
+    .from("profiles")
+    .select("profit_balance")
+    .eq("user_id", parentAgentId)
+    .maybeSingle();
+
+  if (parentProfileError || !parentProfile) {
+    return { success: false, error: parentProfileError?.message || "Parent profile not found" };
+  }
+
+  const nextProfit = Number(parentProfile.profit_balance || 0) + addonAmount;
+  const { error: updateProfitError } = await supabase
+    .from("profiles")
+    .update({ profit_balance: nextProfit })
+    .eq("user_id", parentAgentId);
+
+  if (updateProfitError) return { success: false, error: updateProfitError.message };
+
+  const { error: profitTxError } = await supabase.from("transactions").insert({
+    user_id: parentAgentId,
+    type: "store_sale",
+    status: "success",
+    amount: addonAmount,
+    description: `Subagent signup addon earned from ${subagentUserId} under ${storeName}`,
+  });
+
+  if (profitTxError) return { success: false, error: profitTxError.message };
+
+  return { success: true };
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return fail("Method not allowed", "METHOD_NOT_ALLOWED");
@@ -60,6 +100,7 @@ Deno.serve(async (req) => {
 
     const roleList = (roles || []).map((r: any) => r.role);
     if (roleList.includes("admin")) return fail("Admin accounts cannot become subagents", "INVALID_ACCOUNT");
+    if (roleList.includes("agent")) return fail("Primary agent accounts cannot become subagents", "INVALID_ACCOUNT");
     if (roleList.includes("sub_agent") || existingAssignment?.status === "active") {
       return fail("Already an active subagent", "ALREADY_SUBAGENT");
     }
@@ -113,6 +154,9 @@ Deno.serve(async (req) => {
       });
       if (txError) return fail(`Transaction log failed: ${txError.message}`, "TRANSACTION_LOG_FAILED");
 
+      const profitCredit = await creditParentAddonProfit(supabase, store.agent_id, addon, user.id, store.store_name);
+      if (!profitCredit.success) return fail(`Parent profit credit failed: ${profitCredit.error}`, "PARENT_PROFIT_CREDIT_FAILED");
+
       return json({ success: true, new_balance: newBalance });
     }
 
@@ -159,6 +203,9 @@ Deno.serve(async (req) => {
       description: `Subagent activation under ${store.store_name} (Paystack verified)`,
     });
     if (txError) return fail(`Transaction log failed: ${txError.message}`, "TRANSACTION_LOG_FAILED");
+
+    const profitCredit = await creditParentAddonProfit(supabase, store.agent_id, addon, user.id, store.store_name);
+    if (!profitCredit.success) return fail(`Parent profit credit failed: ${profitCredit.error}`, "PARENT_PROFIT_CREDIT_FAILED");
 
     return json({ success: true });
   } catch (e) {

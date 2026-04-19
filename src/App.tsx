@@ -66,6 +66,7 @@ const App = () => (
               <Route path="/" element={<MaintenanceGate><Landing /></MaintenanceGate>} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/store/:slug" element={<MaintenanceGate><PublicStore /></MaintenanceGate>} />
+              <Route path="/store/:slug/subagent-program" element={<MaintenanceGate><SubAgentSignup /></MaintenanceGate>} />
               <Route path="/store/:slug/subagent" element={<MaintenanceGate><SubAgentSignup /></MaintenanceGate>} />
 
               <Route path="/dashboard" element={<Shell><Dashboard /></Shell>} />

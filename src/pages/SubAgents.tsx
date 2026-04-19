@@ -24,6 +24,7 @@ export default function SubAgents() {
   const [basePrices, setBasePrices] = useState<Record<string, number>>({});
   const [savingPrice, setSavingPrice] = useState<Record<string, boolean>>({});
   const [subagents, setSubagents] = useState<any[]>([]);
+  const [managingSubagent, setManagingSubagent] = useState<Record<string, boolean>>({});
 
   const totalSignupFee = SUBAGENT_BASE_FEE + (Number(addon) || 0);
 
@@ -145,6 +146,28 @@ export default function SubAgents() {
     }
 
     toast.success("Subagent base price saved");
+  };
+
+  const toggleSubagentStatus = async (row: any) => {
+    const nextAction = row.status === "active" ? "deactivate" : "activate";
+    setManagingSubagent((prev) => ({ ...prev, [row.subagent_user_id]: true }));
+
+    const { data, error } = await supabase.functions.invoke("manage-subagent", {
+      body: {
+        subagent_user_id: row.subagent_user_id,
+        action: nextAction,
+      },
+    });
+
+    setManagingSubagent((prev) => ({ ...prev, [row.subagent_user_id]: false }));
+
+    if (error || !data?.success) {
+      toast.error(data?.error || error?.message || "Could not update subagent status");
+      return;
+    }
+
+    toast.success(nextAction === "activate" ? "Subagent activated" : "Subagent suspended");
+    await load();
   };
 
   if (!isAgent || isSubAgent) {
@@ -276,6 +299,7 @@ export default function SubAgents() {
                 <TableHead>Phone</TableHead>
                 <TableHead>Paid</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -286,6 +310,17 @@ export default function SubAgents() {
                   <TableCell>{row.profile?.phone || "—"}</TableCell>
                   <TableCell>{formatGHS(Number(row.paid_amount || 0))}</TableCell>
                   <TableCell className="capitalize">{row.status}</TableCell>
+                  <TableCell>
+                    <Button
+                      size="sm"
+                      variant={row.status === "active" ? "destructive" : "outline"}
+                      onClick={() => toggleSubagentStatus(row)}
+                      disabled={!!managingSubagent[row.subagent_user_id]}
+                    >
+                      {managingSubagent[row.subagent_user_id] && <Loader2 className="h-4 w-4 animate-spin" />}
+                      {row.status === "active" ? "Suspend" : "Activate"}
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

@@ -138,12 +138,11 @@ export default function PublicStore() {
               <p className="text-xs uppercase tracking-wider text-muted-foreground">Subagent Program</p>
               <h3 className="font-bold text-lg mt-1">Become a Subagent under {store.store_name}</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                Signup fee: {formatGHS(subAgentBaseFee)} base + {formatGHS(Number(store.subagent_fee_addon || 0))} addon = {" "}
-                <span className="font-semibold text-foreground">{formatGHS(subAgentBaseFee + Number(store.subagent_fee_addon || 0))}</span>
+                Final signup fee: <span className="font-semibold text-foreground">{formatGHS(subAgentBaseFee + Number(store.subagent_fee_addon || 0))}</span>
               </p>
             </div>
             <Button asChild>
-              <Link to={`/store/${store.slug}/subagent`}>Become a Subagent</Link>
+              <Link to={`/store/${store.slug}/subagent-program`}>View Subagent Program</Link>
             </Button>
           </div>
         </Card>

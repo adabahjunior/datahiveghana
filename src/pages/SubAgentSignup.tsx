@@ -141,8 +141,8 @@ export default function SubAgentSignup() {
   return (
     <div className="animate-fade-in">
       <PageHeader
-        title={`Become a Subagent of ${store.store_name}`}
-        description="Unlock subagent pricing and build your own mini-store under this agent network."
+        title={`${store.store_name} Subagent Program`}
+        description="Join as a subagent, unlock subagent pricing, and build your own mini-store."
       />
 
       <div className="max-w-2xl">
@@ -150,17 +150,14 @@ export default function SubAgentSignup() {
           <div className="flex items-start gap-3 mb-6">
             <ShieldCheck className="h-5 w-5 text-primary mt-0.5" />
             <div>
-              <p className="font-semibold">Subagent Activation Pricing</p>
-              <p className="text-sm text-muted-foreground mt-1">Platform base is fixed at 30 GHS. This store may add a signup addon.</p>
+              <p className="font-semibold">Subagent Activation Fee</p>
+              <p className="text-sm text-muted-foreground mt-1">One-time fee to unlock your subagent account under this store.</p>
             </div>
           </div>
 
-          <div className="space-y-2 text-sm mb-6">
-            <div className="flex justify-between"><span className="text-muted-foreground">Platform base fee</span><span>{formatGHS(SUBAGENT_BASE_FEE)}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Agent addon</span><span>{formatGHS(addon)}</span></div>
-            <div className="flex justify-between border-t border-border pt-2 font-semibold"><span>Total activation fee</span><span>{formatGHS(totalFee)}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Paystack charge</span><span>{formatGHS(calcPaystackCharge(totalFee))}</span></div>
-            <div className="flex justify-between font-semibold"><span>Paystack checkout total</span><span>{formatGHS(paystackTotal)}</span></div>
+          <div className="rounded-lg border border-border p-4 mb-6">
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">Final Price</p>
+            <p className="text-3xl font-bold mt-1">{formatGHS(totalFee)}</p>
           </div>
 
           {!canActivate ? (
@@ -171,7 +168,7 @@ export default function SubAgentSignup() {
                 {processingWallet && <Loader2 className="h-4 w-4 animate-spin" />} Pay {formatGHS(totalFee)} from Wallet
               </Button>
               <Button onClick={activateViaPaystack} disabled={processingWallet || processingPaystack}>
-                {processingPaystack && <Loader2 className="h-4 w-4 animate-spin" />} Pay {formatGHS(paystackTotal)} with Paystack
+                {processingPaystack && <Loader2 className="h-4 w-4 animate-spin" />} Pay with Paystack
               </Button>
             </div>
           )}
