@@ -75,13 +75,24 @@ Deno.serve(async (req) => {
     const recipient_phone = String(body?.recipient_phone || "").trim();
     if (!package_id || !recipient_phone || recipient_phone.length < 10) return fail("Invalid input", "INVALID_INPUT");
 
-    const [{ data: profile, error: profileError }, { data: pkg, error: pkgError }, { data: roles, error: rolesError }] = await Promise.all([
-      supabase.from("profiles").select("user_id,wallet_balance,is_agent").eq("user_id", user.id).single(),
+    const [{ data: byUserIdProfile, error: profileError }, { data: pkg, error: pkgError }, { data: roles, error: rolesError }] = await Promise.all([
+      supabase.from("profiles").select("id,user_id,wallet_balance,is_agent").eq("user_id", user.id).maybeSingle(),
       supabase.from("data_packages").select("id,name,network,volume_mb,guest_price,agent_price,is_active").eq("id", package_id).eq("is_active", true).single(),
       supabase.from("user_roles").select("role").eq("user_id", user.id),
     ]);
+    let profile = byUserIdProfile;
+    if (!profile && !profileError) {
+      const { data: byIdProfile } = await supabase
+        .from("profiles")
+        .select("id,user_id,wallet_balance,is_agent")
+        .eq("id", user.id)
+        .maybeSingle();
+      profile = byIdProfile;
+    }
     if (profileError || !profile) return fail("Profile not found", "PROFILE_NOT_FOUND");
     if (pkgError || !pkg) return fail("Package not found", "PACKAGE_NOT_FOUND");
+
+    const profileMatchColumn = profile.user_id === user.id ? "user_id" : "id";
 
     const isAgent = profile.is_agent || (!rolesError && (roles || []).some((r: any) => r.role === "agent"));
     const price = isAgent ? Number(pkg.agent_price) : Number(pkg.guest_price);
@@ -93,7 +104,7 @@ Deno.serve(async (req) => {
     const { error: debitError } = await supabase
       .from("profiles")
       .update({ wallet_balance: newBalance })
-      .eq("user_id", user.id)
+      .eq(profileMatchColumn, user.id)
       .gte("wallet_balance", price);
     if (debitError) return fail(`Wallet debit failed: ${debitError.message}`, "WALLET_DEBIT_FAILED");
 
@@ -111,14 +122,14 @@ Deno.serve(async (req) => {
       notes: "Routing order to provider...",
     }).select().single();
     if (orderError || !order) {
-      await supabase.from("profiles").update({ wallet_balance: Number(profile.wallet_balance) }).eq("user_id", user.id);
+      await supabase.from("profiles").update({ wallet_balance: Number(profile.wallet_balance) }).eq(profileMatchColumn, user.id);
       return fail(`Order creation failed: ${orderError?.message || "Unknown error"}`, "ORDER_CREATE_FAILED");
     }
 
     const providerNetworkKey = NETWORK_KEY_MAP[pkg.network as string];
     if (!providerNetworkKey) {
       await supabase.from("orders").update({ status: "failed", notes: appendNotes(order.notes, "Unsupported network mapping") }).eq("id", order.id);
-      await supabase.from("profiles").update({ wallet_balance: Number(profile.wallet_balance) }).eq("user_id", user.id);
+      await supabase.from("profiles").update({ wallet_balance: Number(profile.wallet_balance) }).eq(profileMatchColumn, user.id);
       return fail("Unsupported network for provider", "UNSUPPORTED_NETWORK");
     }
 
@@ -180,7 +191,7 @@ Deno.serve(async (req) => {
     });
     if (txError) {
       await supabase.from("orders").delete().eq("id", order.id);
-      await supabase.from("profiles").update({ wallet_balance: Number(profile.wallet_balance) }).eq("user_id", user.id);
+      await supabase.from("profiles").update({ wallet_balance: Number(profile.wallet_balance) }).eq(profileMatchColumn, user.id);
       return fail(`Transaction logging failed: ${txError.message}`, "TRANSACTION_LOG_FAILED");
     }
 

@@ -42,8 +42,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       supabase.from("profiles").select("*").eq("user_id", uid).maybeSingle(),
       supabase.from("user_roles").select("role").eq("user_id", uid),
     ]);
-    if (p.data) setProfile(p.data as Profile);
-    if (r.data) setRoles(r.data.map((x: { role: AppRole }) => x.role));
+    setProfile((p.data as Profile) || null);
+    setRoles((r.data || []).map((x: { role: AppRole }) => x.role));
   };
 
   const refreshProfile = async () => {
