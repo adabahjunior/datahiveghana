@@ -21,7 +21,9 @@ export default function MyStore() {
   const [store, setStore] = useState<any>(null);
   const [activating, setActivating] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [savingStoreDetails, setSavingStoreDetails] = useState(false);
   const [form, setForm] = useState({ store_name: "", support_phone: "", whatsapp_link: "" });
+  const [storeDetailsForm, setStoreDetailsForm] = useState({ support_phone: "", whatsapp_link: "" });
   const [packages, setPackages] = useState<any[]>([]);
   const [storePrices, setStorePrices] = useState<Record<string, { price: number; listed: boolean }>>({});
 
@@ -30,6 +32,12 @@ export default function MyStore() {
     (async () => {
       const { data: s } = await supabase.from("agent_stores").select("*").eq("agent_id", profile.user_id).maybeSingle();
       setStore(s);
+      if (s) {
+        setStoreDetailsForm({
+          support_phone: s.support_phone || "",
+          whatsapp_link: s.whatsapp_link || "",
+        });
+      }
       if (s) await loadCatalog(s.id);
     })();
   }, [profile]);
@@ -96,6 +104,44 @@ export default function MyStore() {
     }, { onConflict: "store_id,package_id" });
     if (error) toast.error(error.message);
     else toast.success("Saved");
+  };
+
+  const handleSaveStoreDetails = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!store || !profile) return;
+
+    const supportPhone = storeDetailsForm.support_phone.trim();
+    const whatsappLink = storeDetailsForm.whatsapp_link.trim();
+
+    if (!supportPhone) {
+      toast.error("Support contact number is required");
+      return;
+    }
+
+    setSavingStoreDetails(true);
+    const { data, error } = await supabase
+      .from("agent_stores")
+      .update({
+        support_phone: supportPhone,
+        whatsapp_link: whatsappLink || null,
+      })
+      .eq("id", store.id)
+      .eq("agent_id", profile.user_id)
+      .select()
+      .single();
+    setSavingStoreDetails(false);
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    setStore(data);
+    setStoreDetailsForm({
+      support_phone: data.support_phone || "",
+      whatsapp_link: data.whatsapp_link || "",
+    });
+    toast.success("Store support details updated");
   };
 
   if (!profile) return null;
@@ -224,6 +270,37 @@ export default function MyStore() {
           </div>
           <Button variant="outline" size="sm" onClick={() => { navigator.clipboard.writeText(storeUrl); toast.success("Copied!"); }}>Copy</Button>
         </div>
+      </Card>
+
+      <Card className="p-6 mb-8">
+        <h3 className="font-bold text-base">Store Support Channels</h3>
+        <p className="text-sm text-muted-foreground mt-1">These details are shown on your public store and used for your store WhatsApp support link.</p>
+        <form onSubmit={handleSaveStoreDetails} className="grid md:grid-cols-3 gap-4 mt-5 items-end">
+          <div className="space-y-2 md:col-span-1">
+            <Label htmlFor="store-support-phone">Support Contact Number</Label>
+            <Input
+              id="store-support-phone"
+              required
+              placeholder="0244000000"
+              value={storeDetailsForm.support_phone}
+              onChange={(e) => setStoreDetailsForm({ ...storeDetailsForm, support_phone: e.target.value })}
+            />
+          </div>
+          <div className="space-y-2 md:col-span-1">
+            <Label htmlFor="store-whatsapp-link">WhatsApp Support/Channel Link</Label>
+            <Input
+              id="store-whatsapp-link"
+              placeholder="https://chat.whatsapp.com/..."
+              value={storeDetailsForm.whatsapp_link}
+              onChange={(e) => setStoreDetailsForm({ ...storeDetailsForm, whatsapp_link: e.target.value })}
+            />
+          </div>
+          <div className="md:col-span-1">
+            <Button type="submit" disabled={savingStoreDetails} className="w-full">
+              {savingStoreDetails && <Loader2 className="h-4 w-4 animate-spin" />} Save Support Details
+            </Button>
+          </div>
+        </form>
       </Card>
 
       <div className="grid sm:grid-cols-3 gap-5 mb-8">

@@ -11,6 +11,38 @@ export const FloatingWhatsAppButton = () => {
 
   useEffect(() => {
     const load = async () => {
+      const path = location.pathname;
+      const isStoreRoute = path.startsWith("/store/");
+
+      if (isStoreRoute) {
+        const slug = path.split("/")[2] || "";
+        if (!slug) {
+          setUrl("");
+          return;
+        }
+
+        const { data: store } = await supabase
+          .from("agent_stores")
+          .select("whatsapp_link,support_phone")
+          .eq("slug", slug)
+          .maybeSingle();
+
+        if (store?.whatsapp_link) {
+          setUrl(store.whatsapp_link);
+          return;
+        }
+
+        if (store?.support_phone) {
+          const digits = String(store.support_phone).replace(/\D/g, "");
+          const formatted = digits.startsWith("0") ? `233${digits.slice(1)}` : digits;
+          setUrl(formatted ? `https://wa.me/${formatted}` : "");
+          return;
+        }
+
+        setUrl("");
+        return;
+      }
+
       const { data } = await supabase
         .from("app_settings")
         .select("value")
@@ -22,7 +54,7 @@ export const FloatingWhatsAppButton = () => {
     };
 
     load();
-  }, []);
+  }, [location.pathname]);
 
   if (shouldHide || !url) return null;
 
