@@ -4,7 +4,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { PageHeader } from "@/components/PageHeader";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Loader2, ShieldCheck } from "lucide-react";
 import { formatGHS, calcPaystackCharge } from "@/lib/format";
 import { startPaystackCheckout } from "@/lib/paystack";
@@ -21,6 +22,13 @@ export default function SubAgentSignup() {
   const [loading, setLoading] = useState(true);
   const [processingWallet, setProcessingWallet] = useState(false);
   const [processingPaystack, setProcessingPaystack] = useState(false);
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authMode, setAuthMode] = useState<"signup" | "signin">("signup");
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [store, setStore] = useState<any>(null);
 
   useEffect(() => {
@@ -40,13 +48,80 @@ export default function SubAgentSignup() {
   const totalFee = SUBAGENT_BASE_FEE + addon;
   const paystackTotal = totalFee + calcPaystackCharge(totalFee);
 
-  const canActivate = useMemo(() => {
-    if (!user || !profile || !store) return false;
-    if (!store.is_active) return false;
-    if (isSubAgent) return false;
-    if (store.agent_id === user.id) return false;
-    return true;
+  const blockedReason = useMemo(() => {
+    if (!store) return "Store not found";
+    if (!store.is_active) return "This store is currently inactive";
+    if (!user || !profile) return "Sign in or create an account to continue";
+    if (isSubAgent) return "This account is already a subagent";
+    if (store.agent_id === user.id) return "Primary agent account cannot self-register as subagent";
+    return null;
   }, [user, profile, store, isSubAgent]);
+
+  const canActivate = !blockedReason;
+
+  const handleAuthSubmit = async () => {
+    if (!email.trim() || !password) {
+      toast.error("Email and password are required");
+      return;
+    }
+
+    setAuthLoading(true);
+    try {
+      if (authMode === "signup") {
+        if (!fullName.trim()) {
+          toast.error("Full name is required");
+          return;
+        }
+        if (password.length < 6) {
+          toast.error("Password must be at least 6 characters");
+          return;
+        }
+        if (password !== confirmPassword) {
+          toast.error("Passwords do not match");
+          return;
+        }
+
+        const { data, error } = await supabase.auth.signUp({
+          email: email.trim(),
+          password,
+          options: {
+            data: {
+              full_name: fullName.trim(),
+              phone: phone.trim(),
+            },
+          },
+        });
+
+        if (error) {
+          toast.error(error.message);
+          return;
+        }
+
+        if (data.session) {
+          await refreshProfile();
+          toast.success("Account created. Continue with activation payment below.");
+        } else {
+          toast.success("Account created. Confirm email if required, then sign in on this page.");
+          setAuthMode("signin");
+        }
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+
+        if (error) {
+          toast.error(error.message);
+          return;
+        }
+
+        await refreshProfile();
+        toast.success("Signed in. Continue with activation payment below.");
+      }
+    } finally {
+      setAuthLoading(false);
+    }
+  };
 
   const activateViaWallet = async () => {
     if (!slug) return;
@@ -119,35 +194,26 @@ export default function SubAgentSignup() {
 
   if (!store) {
     return (
-      <div className="animate-fade-in p-6">
-        <PageHeader title="Subagent Signup" description="Store not found" />
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="animate-fade-in p-6">
-        <PageHeader title={`Become a Subagent of ${store.store_name}`} description="Sign in first to continue." />
-        <Card className="p-6 max-w-xl">
-          <Button asChild>
-            <Link to="/auth">Sign In / Create Account</Link>
-          </Button>
+      <div className="min-h-screen flex items-center justify-center px-4 py-10">
+        <Card className="p-8 w-full max-w-xl text-center">
+          <h1 className="text-2xl font-bold">Subagent Program</h1>
+          <p className="text-muted-foreground mt-2">Store not found.</p>
+          <Button asChild className="mt-6"><Link to="/">Go Home</Link></Button>
         </Card>
       </div>
     );
   }
 
   return (
-    <div className="animate-fade-in">
-      <PageHeader
-        title={`${store.store_name} Subagent Program`}
-        description="Join as a subagent, unlock subagent pricing, and build your own mini-store."
-      />
+    <div className="min-h-screen flex items-center justify-center px-4 py-10">
+      <div className="w-full max-w-2xl">
+        <Card className="p-6 sm:p-8 border-primary/30">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold">{store.store_name} Subagent Program</h1>
+            <p className="text-muted-foreground mt-2">Create your account on this page, pay activation, and unlock your subagent dashboard.</p>
+          </div>
 
-      <div className="max-w-2xl">
-        <Card className="p-6 border-primary/30">
-          <div className="flex items-start gap-3 mb-6">
+          <div className="flex items-start gap-3 mb-5">
             <ShieldCheck className="h-5 w-5 text-primary mt-0.5" />
             <div>
               <p className="font-semibold">Subagent Activation Fee</p>
@@ -155,13 +221,72 @@ export default function SubAgentSignup() {
             </div>
           </div>
 
-          <div className="rounded-lg border border-border p-4 mb-6">
+          <div className="rounded-lg border border-border p-4 mb-8 text-center">
             <p className="text-xs uppercase tracking-wider text-muted-foreground">Final Price</p>
             <p className="text-3xl font-bold mt-1">{formatGHS(totalFee)}</p>
           </div>
 
+          {!user && (
+            <div className="rounded-lg border border-border p-4 mb-8">
+              <div className="flex gap-2 mb-4">
+                <Button
+                  type="button"
+                  variant={authMode === "signup" ? "default" : "outline"}
+                  className="flex-1"
+                  onClick={() => setAuthMode("signup")}
+                >
+                  Create Account
+                </Button>
+                <Button
+                  type="button"
+                  variant={authMode === "signin" ? "default" : "outline"}
+                  className="flex-1"
+                  onClick={() => setAuthMode("signin")}
+                >
+                  Sign In
+                </Button>
+              </div>
+
+              <div className="space-y-3">
+                {authMode === "signup" && (
+                  <>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="sa-full-name">Full Name</Label>
+                      <Input id="sa-full-name" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="sa-phone">Phone (optional)</Label>
+                      <Input id="sa-phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
+                    </div>
+                  </>
+                )}
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="sa-email">Email</Label>
+                  <Input id="sa-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="sa-password">Password</Label>
+                  <Input id="sa-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+                </div>
+
+                {authMode === "signup" && (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="sa-confirm-password">Confirm Password</Label>
+                    <Input id="sa-confirm-password" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
+                  </div>
+                )}
+
+                <Button type="button" className="w-full" onClick={handleAuthSubmit} disabled={authLoading}>
+                  {authLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {authMode === "signup" ? "Create Account and Continue" : "Sign In and Continue"}
+                </Button>
+              </div>
+            </div>
+          )}
+
           {!canActivate ? (
-            <p className="text-sm text-muted-foreground">This account cannot be activated as subagent for this store.</p>
+            <p className="text-sm text-muted-foreground text-center">{blockedReason}</p>
           ) : (
             <div className="grid sm:grid-cols-2 gap-3">
               <Button variant="outline" onClick={activateViaWallet} disabled={processingWallet || processingPaystack}>
@@ -172,6 +297,8 @@ export default function SubAgentSignup() {
               </Button>
             </div>
           )}
+
+          <p className="text-xs text-muted-foreground text-center mt-6">After successful payment, your subagent dashboard will unlock automatically.</p>
         </Card>
       </div>
     </div>
