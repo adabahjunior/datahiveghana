@@ -19,6 +19,7 @@ import Transactions from "./pages/Transactions";
 import BuyData from "./pages/BuyData";
 import MyStore from "./pages/MyStore";
 import MyStoreOrders from "./pages/MyStoreOrders";
+import FlyerGenerator from "./pages/FlyerGenerator";
 import SubAgents from "./pages/SubAgents";
 import ResultCheckers from "./pages/ResultCheckers";
 import Withdrawal from "./pages/Withdrawal";
@@ -71,6 +72,7 @@ const App = () => (
               <Route path="/buy/:network" element={<Shell><BuyData /></Shell>} />
               <Route path="/my-store" element={<Shell><MyStore /></Shell>} />
               <Route path="/my-store/orders" element={<Shell><ProtectedRoute requireAgent><MyStoreOrders /></ProtectedRoute></Shell>} />
+              <Route path="/flyer-generator" element={<Shell><ProtectedRoute requireAgent><FlyerGenerator /></ProtectedRoute></Shell>} />
               <Route path="/withdrawal" element={<Shell><ProtectedRoute requireAgent><Withdrawal /></ProtectedRoute></Shell>} />
               <Route path="/sub-agents" element={<Shell><ProtectedRoute requireAgent><SubAgents /></ProtectedRoute></Shell>} />
               <Route path="/result-checkers" element={<Shell><ProtectedRoute requireAgent><ResultCheckers /></ProtectedRoute></Shell>} />
