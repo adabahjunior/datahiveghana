@@ -22,6 +22,7 @@ Deno.serve(async (req) => {
     if (!momo_number || !momo_name || !network) return json({ error: "Missing fields" }, 400);
 
     const { data: profile } = await supabase.from("profiles").select("*").eq("user_id", user.id).single();
+    if (profile?.is_banned) return json({ error: "This account is banned" }, 403);
     if (!profile?.is_agent) return json({ error: "Agents only" }, 403);
     if (Number(profile.profit_balance) < amt) return json({ error: "Exceeds profit balance" }, 400);
 

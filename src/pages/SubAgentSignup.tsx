@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2, ShieldCheck } from "lucide-react";
 import { formatGHS, calcPaystackCharge } from "@/lib/format";
 import { startPaystackCheckout } from "@/lib/paystack";
+import { validateEmailSafety } from "@/lib/emailSafety";
 import { toast } from "sonner";
 
 const SUBAGENT_BASE_FEE = 30;
@@ -72,6 +73,13 @@ export default function SubAgentSignup() {
           toast.error("Full name is required");
           return;
         }
+
+        const safeEmail = validateEmailSafety(email);
+        if (!safeEmail.ok) {
+          toast.error(safeEmail.message);
+          return;
+        }
+
         if (password.length < 6) {
           toast.error("Password must be at least 6 characters");
           return;

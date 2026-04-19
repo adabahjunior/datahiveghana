@@ -13,6 +13,7 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [resettingUserId, setResettingUserId] = useState<string | null>(null);
+  const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
   const [resetTarget, setResetTarget] = useState<any | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -87,8 +88,9 @@ export default function AdminUsersPage() {
     }
 
     setResettingUserId(resetTarget.user_id);
-    const { data, error } = await supabase.functions.invoke("admin-reset-password", {
+    const { data, error } = await supabase.functions.invoke("admin-manage-user", {
       body: {
+        action: "reset_password",
         user_id: resetTarget.user_id,
         new_password: newPassword,
       },
@@ -104,6 +106,31 @@ export default function AdminUsersPage() {
     setResetTarget(null);
     setNewPassword("");
     setConfirmPassword("");
+  };
+
+  const setBanStatus = async (user: any, shouldBan: boolean) => {
+    setUpdatingUserId(user.user_id);
+
+    const reason = shouldBan
+      ? window.prompt("Optional reason for banning this account:", "") || ""
+      : "";
+
+    const { data, error } = await supabase.functions.invoke("admin-manage-user", {
+      body: {
+        action: shouldBan ? "ban" : "unban",
+        user_id: user.user_id,
+        reason,
+      },
+    });
+
+    setUpdatingUserId(null);
+    if (error || !data?.success) {
+      toast.error(data?.error || error?.message || "Failed to update account status");
+      return;
+    }
+
+    toast.success(shouldBan ? "User account banned." : "User account unbanned.");
+    load();
   };
 
   const filteredUsers = users.filter((u) => {
@@ -149,24 +176,49 @@ export default function AdminUsersPage() {
                 <TableCell>{u.email}</TableCell>
                 <TableCell>{u.is_agent ? <Badge>Agent</Badge> : <Badge variant="secondary">User</Badge>}</TableCell>
                 <TableCell>
-                  {u.is_agent ? <Badge>Agent Access Enabled</Badge> : <Badge variant="secondary">No Agent Access</Badge>}
+                  {u.is_banned ? (
+                    <Badge variant="destructive">Banned</Badge>
+                  ) : u.is_agent ? (
+                    <Badge>Agent Access Enabled</Badge>
+                  ) : (
+                    <Badge variant="secondary">No Agent Access</Badge>
+                  )}
                 </TableCell>
                 <TableCell className="space-x-2 whitespace-nowrap">
                   <Button
                     size="sm"
                     variant="outline"
-                    disabled={resettingUserId === u.user_id}
+                    disabled={resettingUserId === u.user_id || updatingUserId === u.user_id}
                     onClick={() => setResetTarget(u)}
                   >
                     {resettingUserId === u.user_id ? "Updating..." : "Reset Password"}
                   </Button>
+                  {u.is_banned ? (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled={updatingUserId === u.user_id}
+                      onClick={() => setBanStatus(u, false)}
+                    >
+                      {updatingUserId === u.user_id ? "Updating..." : "Unban"}
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      disabled={updatingUserId === u.user_id}
+                      onClick={() => setBanStatus(u, true)}
+                    >
+                      {updatingUserId === u.user_id ? "Updating..." : "Ban"}
+                    </Button>
+                  )}
                   {!u.is_agent && (
-                    <Button size="sm" onClick={() => grantAgentAccess(u)}>
+                    <Button size="sm" disabled={updatingUserId === u.user_id} onClick={() => grantAgentAccess(u)}>
                       Grant Agent Access
                     </Button>
                   )}
                   {u.is_agent && (
-                    <Button size="sm" variant="destructive" onClick={() => revokeAgentAccess(u)}>
+                    <Button size="sm" variant="destructive" disabled={updatingUserId === u.user_id} onClick={() => revokeAgentAccess(u)}>
                       Revoke Agent Access
                     </Button>
                   )}

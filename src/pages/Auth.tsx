@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import { z } from "zod";
+import { validateEmailSafety } from "@/lib/emailSafety";
 
 const signUpSchema = z.object({
   email: z.string().trim().email("Invalid email").max(255),
@@ -45,6 +46,13 @@ export default function Auth() {
       toast.error(parsed.error.errors[0].message);
       return;
     }
+
+    const safeEmail = validateEmailSafety(signup.email);
+    if (!safeEmail.ok) {
+      toast.error(safeEmail.message);
+      return;
+    }
+
     setLoading(true);
     const { error } = await supabase.auth.signUp({
       email: signup.email,

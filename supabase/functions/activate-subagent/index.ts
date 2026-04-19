@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
 
     const [{ data: store }, { data: profile }, { data: roles }, { data: existingAssignment }] = await Promise.all([
       supabase.from("agent_stores").select("id,agent_id,store_name,is_active,subagent_fee_addon").eq("slug", store_slug).maybeSingle(),
-      supabase.from("profiles").select("wallet_balance").eq("user_id", user.id).maybeSingle(),
+      supabase.from("profiles").select("wallet_balance,is_banned").eq("user_id", user.id).maybeSingle(),
       supabase.from("user_roles").select("role").eq("user_id", user.id),
       supabase.from("subagent_assignments").select("id,status").eq("subagent_user_id", user.id).maybeSingle(),
     ]);
@@ -97,6 +97,7 @@ Deno.serve(async (req) => {
     if (!store || !store.is_active) return fail("Store not found", "STORE_NOT_FOUND");
     if (store.agent_id === user.id) return fail("You cannot be a subagent under your own store", "INVALID_ACCOUNT");
     if (!profile) return fail("Profile not found", "PROFILE_NOT_FOUND");
+    if (profile.is_banned) return fail("This account is banned", "ACCOUNT_BANNED");
 
     const roleList = (roles || []).map((r: any) => r.role);
     if (roleList.includes("admin")) return fail("Admin accounts cannot become subagents", "INVALID_ACCOUNT");

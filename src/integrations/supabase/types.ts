@@ -222,11 +222,13 @@ export type Database = {
       }
       profiles: {
         Row: {
+          ban_reason: string | null
           created_at: string
           email: string
           full_name: string | null
           id: string
           is_agent: boolean
+          is_banned: boolean
           phone: string | null
           profit_balance: number
           updated_at: string
@@ -234,11 +236,13 @@ export type Database = {
           wallet_balance: number
         }
         Insert: {
+          ban_reason?: string | null
           created_at?: string
           email: string
           full_name?: string | null
           id?: string
           is_agent?: boolean
+          is_banned?: boolean
           phone?: string | null
           profit_balance?: number
           updated_at?: string
@@ -246,11 +250,13 @@ export type Database = {
           wallet_balance?: number
         }
         Update: {
+          ban_reason?: string | null
           created_at?: string
           email?: string
           full_name?: string | null
           id?: string
           is_agent?: boolean
+          is_banned?: boolean
           phone?: string | null
           profit_balance?: number
           updated_at?: string

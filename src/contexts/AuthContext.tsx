@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 type AppRole = "user" | "agent" | "sub_agent" | "admin";
 
@@ -13,6 +14,8 @@ type Profile = {
   wallet_balance: number;
   profit_balance: number;
   is_agent: boolean;
+  is_banned?: boolean;
+  ban_reason?: string | null;
   is_revoked?: boolean;
 };
 
@@ -44,7 +47,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       supabase.from("profiles").select("*").eq("user_id", uid).maybeSingle(),
       supabase.from("user_roles").select("role").eq("user_id", uid),
     ]);
-    setProfile((p.data as Profile) || null);
+
+    const nextProfile = (p.data as Profile) || null;
+    if (nextProfile?.is_banned) {
+      await supabase.auth.signOut();
+      setProfile(null);
+      setRoles([]);
+      toast.error(nextProfile.ban_reason || "This account has been banned. Contact support.");
+      return;
+    }
+
+    setProfile(nextProfile);
     setRoles((r.data || []).map((x: { role: AppRole }) => x.role));
   };
 

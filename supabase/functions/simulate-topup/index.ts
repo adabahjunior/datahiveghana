@@ -92,17 +92,18 @@ Deno.serve(async (req) => {
     // Credit wallet after verified payment success.
     const byUserId = await supabase
       .from("profiles")
-      .select("id,user_id,wallet_balance")
+      .select("id,user_id,wallet_balance,is_banned")
       .eq("user_id", user.id)
       .maybeSingle();
 
     const profile = byUserId.data || (await supabase
       .from("profiles")
-      .select("id,user_id,wallet_balance")
+      .select("id,user_id,wallet_balance,is_banned")
       .eq("id", user.id)
       .maybeSingle()).data;
 
     if (!profile) return fail("Profile not found", "PROFILE_NOT_FOUND");
+    if (profile.is_banned) return fail("This account is banned", "ACCOUNT_BANNED");
 
     const newBalance = Number(profile.wallet_balance) + resolvedAmount;
     const profileMatchColumn = profile.user_id === user.id ? "user_id" : "id";

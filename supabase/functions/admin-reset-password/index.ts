@@ -15,11 +15,11 @@ Deno.serve(async (req) => {
     );
 
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) return json({ error: "Unauthorized" }, 401);
+    if (!authHeader) return okFail("Unauthorized", "UNAUTHORIZED");
 
     const token = authHeader.replace("Bearer ", "");
     const { data: authData, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !authData.user) return json({ error: "Unauthorized" }, 401);
+    if (authError || !authData.user) return okFail("Unauthorized", "UNAUTHORIZED");
 
     const { data: role } = await supabase
       .from("user_roles")
@@ -28,26 +28,30 @@ Deno.serve(async (req) => {
       .eq("role", "admin")
       .maybeSingle();
 
-    if (!role) return json({ error: "Admins only" }, 403);
+    if (!role) return okFail("Admins only", "FORBIDDEN");
 
     const { user_id, new_password } = await req.json();
-    if (!user_id || typeof user_id !== "string") return json({ error: "user_id is required" }, 400);
-    if (!new_password || typeof new_password !== "string") return json({ error: "new_password is required" }, 400);
-    if (new_password.length < 6) return json({ error: "Password must be at least 6 characters" }, 400);
-    if (new_password.length > 72) return json({ error: "Password is too long" }, 400);
+    if (!user_id || typeof user_id !== "string") return okFail("user_id is required", "INVALID_INPUT");
+    if (!new_password || typeof new_password !== "string") return okFail("new_password is required", "INVALID_INPUT");
+    if (new_password.length < 6) return okFail("Password must be at least 6 characters", "INVALID_INPUT");
+    if (new_password.length > 72) return okFail("Password is too long", "INVALID_INPUT");
 
     const { error: updateError } = await supabase.auth.admin.updateUserById(user_id, {
       password: new_password,
     });
 
-    if (updateError) return json({ error: updateError.message }, 400);
+    if (updateError) return okFail(updateError.message, "RESET_FAILED");
 
     return json({ success: true });
   } catch (e) {
     console.error(e);
-    return json({ error: (e as Error).message }, 500);
+    return okFail((e as Error).message, "UNEXPECTED_ERROR");
   }
 });
+
+function okFail(message: string, code: string) {
+  return json({ success: false, error: message, code });
+}
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {

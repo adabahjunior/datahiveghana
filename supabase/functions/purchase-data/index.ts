@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
     if (!package_id || !recipient_phone || recipient_phone.length < 10) return fail("Invalid input", "INVALID_INPUT");
 
     const [{ data: byUserIdProfile, error: profileError }, { data: pkg, error: pkgError }, { data: roles, error: rolesError }] = await Promise.all([
-      supabase.from("profiles").select("id,user_id,wallet_balance,is_agent").eq("user_id", user.id).maybeSingle(),
+      supabase.from("profiles").select("id,user_id,wallet_balance,is_agent,is_banned").eq("user_id", user.id).maybeSingle(),
       supabase.from("data_packages").select("id,name,network,volume_mb,guest_price,agent_price,is_active").eq("id", package_id).eq("is_active", true).single(),
       supabase.from("user_roles").select("role").eq("user_id", user.id),
     ]);
@@ -84,12 +84,13 @@ Deno.serve(async (req) => {
     if (!profile && !profileError) {
       const { data: byIdProfile } = await supabase
         .from("profiles")
-        .select("id,user_id,wallet_balance,is_agent")
+        .select("id,user_id,wallet_balance,is_agent,is_banned")
         .eq("id", user.id)
         .maybeSingle();
       profile = byIdProfile;
     }
     if (profileError || !profile) return fail("Profile not found", "PROFILE_NOT_FOUND");
+    if (profile.is_banned) return fail("This account is banned", "ACCOUNT_BANNED");
     if (pkgError || !pkg) return fail("Package not found", "PACKAGE_NOT_FOUND");
 
     const profileMatchColumn = profile.user_id === user.id ? "user_id" : "id";
