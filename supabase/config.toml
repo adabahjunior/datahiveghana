@@ -19,7 +19,7 @@ verify_jwt = false
 verify_jwt = true
 
 [functions.retry-order]
-verify_jwt = true
+verify_jwt = false
 
 [functions.activate-subagent]
 verify_jwt = false
