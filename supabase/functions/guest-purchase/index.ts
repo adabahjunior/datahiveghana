@@ -69,6 +69,80 @@ const purchaseFromProvider = async (
   return { ok: response.ok, status: response.status, body: parsed };
 };
 
+const creditStoreSaleProfit = async (
+  supabase: ReturnType<typeof createClient>,
+  payload: {
+    orderId: string;
+    packageName: string;
+    network: string;
+    providerReference: string | null;
+    subagentUserId?: string;
+    subagentProfit: number;
+    parentAgentId?: string;
+    parentAgentProfit: number;
+    fallbackAgentId?: string;
+    fallbackProfit: number;
+  },
+) => {
+  const {
+    orderId,
+    packageName,
+    network,
+    providerReference,
+    subagentUserId,
+    subagentProfit,
+    parentAgentId,
+    parentAgentProfit,
+    fallbackAgentId,
+    fallbackProfit,
+  } = payload;
+
+  if (subagentUserId && subagentProfit > 0) {
+    const { data: subProfile } = await supabase.from("profiles").select("profit_balance").eq("user_id", subagentUserId).maybeSingle();
+    const nextSubProfit = Number(subProfile?.profit_balance || 0) + subagentProfit;
+    await supabase.from("profiles").update({ profit_balance: nextSubProfit }).eq("user_id", subagentUserId);
+    await supabase.from("transactions").insert({
+      user_id: subagentUserId,
+      type: "store_sale",
+      status: "success",
+      amount: subagentProfit,
+      related_order_id: orderId,
+      reference: providerReference,
+      description: `Subagent sale profit: ${packageName} ${network.toUpperCase()}`,
+    });
+  }
+
+  if (parentAgentId && parentAgentProfit > 0) {
+    const { data: parentProfile } = await supabase.from("profiles").select("profit_balance").eq("user_id", parentAgentId).maybeSingle();
+    const nextParentProfit = Number(parentProfile?.profit_balance || 0) + parentAgentProfit;
+    await supabase.from("profiles").update({ profit_balance: nextParentProfit }).eq("user_id", parentAgentId);
+    await supabase.from("transactions").insert({
+      user_id: parentAgentId,
+      type: "store_sale",
+      status: "success",
+      amount: parentAgentProfit,
+      related_order_id: orderId,
+      reference: providerReference,
+      description: `Subagent network override profit: ${packageName} ${network.toUpperCase()}`,
+    });
+  }
+
+  if (!subagentUserId && fallbackAgentId && fallbackProfit > 0) {
+    const { data: agentProfile } = await supabase.from("profiles").select("profit_balance").eq("user_id", fallbackAgentId).maybeSingle();
+    const nextAgentProfit = Number(agentProfile?.profit_balance || 0) + fallbackProfit;
+    await supabase.from("profiles").update({ profit_balance: nextAgentProfit }).eq("user_id", fallbackAgentId);
+    await supabase.from("transactions").insert({
+      user_id: fallbackAgentId,
+      type: "store_sale",
+      status: "success",
+      amount: fallbackProfit,
+      related_order_id: orderId,
+      reference: providerReference,
+      description: `Sale on store: ${packageName} ${network.toUpperCase()}`,
+    });
+  }
+};
+
 // Public guest checkout on agent stores. No auth required.
 // Payment is verified with Paystack server-side before order creation.
 Deno.serve(async (req) => {
@@ -110,8 +184,40 @@ Deno.serve(async (req) => {
 
     // Always derive price from server-side store pricing; never trust client input.
     const sellingPrice = Number(storePrice.selling_price);
-    const costPrice = Number(pkg.agent_price);
-    const profit = Math.max(0, sellingPrice - costPrice);
+    const adminAgentBase = Number(pkg.agent_price);
+    let costPrice = adminAgentBase;
+    let sellerProfit = Math.max(0, sellingPrice - adminAgentBase);
+    let parentAgentProfit = 0;
+
+    let subagentUserId: string | undefined;
+    let parentAgentId: string | undefined;
+
+    const { data: assignment } = await supabase
+      .from("subagent_assignments")
+      .select("parent_agent_id,status")
+      .eq("subagent_user_id", store.agent_id)
+      .eq("status", "active")
+      .maybeSingle();
+
+    if (assignment?.parent_agent_id) {
+      subagentUserId = store.agent_id;
+      parentAgentId = assignment.parent_agent_id;
+
+      const { data: subagentPrice } = await supabase
+        .from("subagent_package_prices")
+        .select("base_price,is_active")
+        .eq("parent_agent_id", assignment.parent_agent_id)
+        .eq("package_id", pkg.id)
+        .eq("is_active", true)
+        .maybeSingle();
+
+      const subagentBase = Number(subagentPrice?.base_price ?? adminAgentBase);
+      costPrice = adminAgentBase;
+      parentAgentProfit = Math.max(0, subagentBase - adminAgentBase);
+      sellerProfit = Math.max(0, sellingPrice - subagentBase);
+    }
+
+    const totalProfit = sellerProfit + parentAgentProfit;
     const expectedTotal = sellingPrice + calcPaystackCharge(sellingPrice);
 
     const verifiedPayment = await verifyPaystackReference(reference, paystackSecretKey);
@@ -128,7 +234,9 @@ Deno.serve(async (req) => {
       volume_mb: pkg.volume_mb,
       amount_paid: sellingPrice,
       cost_price: costPrice,
-      agent_profit: profit,
+      agent_profit: totalProfit,
+      seller_profit: sellerProfit,
+      upstream_agent_profit: parentAgentProfit,
       status: "processing",
       paid_via: "paystack",
       notes: `paystack_ref:${reference}\nRouting order to provider...`,
@@ -178,17 +286,18 @@ Deno.serve(async (req) => {
       })
       .eq("id", order?.id);
 
-    // Credit agent profit
-    if (profit > 0) {
-      const { data: agent } = await supabase.from("profiles").select("profit_balance").eq("user_id", store.agent_id).single();
-      const newProfit = Number(agent?.profit_balance || 0) + profit;
-      await supabase.from("profiles").update({ profit_balance: newProfit }).eq("user_id", store.agent_id);
-      await supabase.from("transactions").insert({
-        user_id: store.agent_id, type: "store_sale", status: "success",
-        amount: profit, related_order_id: order?.id, reference: providerReference,
-        description: `Sale on store: ${pkg.name} ${pkg.network.toUpperCase()}`,
-      });
-    }
+    await creditStoreSaleProfit(supabase, {
+      orderId: order.id,
+      packageName: pkg.name,
+      network: pkg.network,
+      providerReference,
+      subagentUserId,
+      subagentProfit: sellerProfit,
+      parentAgentId,
+      parentAgentProfit,
+      fallbackAgentId: store.agent_id,
+      fallbackProfit: sellerProfit,
+    });
 
     return json({ success: true, order_id: order?.id });
   } catch (e) {

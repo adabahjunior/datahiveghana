@@ -164,8 +164,10 @@ export type Database = {
           package_id: string
           paid_via: string
           recipient_phone: string
+          seller_profit: number
           status: Database["public"]["Enums"]["order_status"]
           store_id: string | null
+          upstream_agent_profit: number
           updated_at: string
           volume_mb: number
         }
@@ -181,8 +183,10 @@ export type Database = {
           package_id: string
           paid_via?: string
           recipient_phone: string
+          seller_profit?: number
           status?: Database["public"]["Enums"]["order_status"]
           store_id?: string | null
+          upstream_agent_profit?: number
           updated_at?: string
           volume_mb: number
         }
@@ -198,8 +202,10 @@ export type Database = {
           package_id?: string
           paid_via?: string
           recipient_phone?: string
+          seller_profit?: number
           status?: Database["public"]["Enums"]["order_status"]
           store_id?: string | null
+          upstream_agent_profit?: number
           updated_at?: string
           volume_mb?: number
         }

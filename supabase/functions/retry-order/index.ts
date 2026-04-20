@@ -47,6 +47,18 @@ const purchaseFromProvider = async (
   return { ok: response.ok, status: response.status, body: parsed };
 };
 
+const hasProfitTx = async (supabase: ReturnType<typeof createClient>, orderId: string, userId: string) => {
+  const { data } = await supabase
+    .from("transactions")
+    .select("id")
+    .eq("related_order_id", orderId)
+    .eq("type", "store_sale")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  return !!data;
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ success: false, error: "Method not allowed" }, 200);
@@ -133,29 +145,62 @@ Deno.serve(async (req) => {
       .eq("id", order.id);
 
     if (order.store_id && Number(order.agent_profit || 0) > 0) {
-      const { data: existingSaleTx } = await supabase
-        .from("transactions")
-        .select("id")
-        .eq("related_order_id", order.id)
-        .eq("type", "store_sale")
+      const { data: store } = await supabase
+        .from("agent_stores")
+        .select("agent_id")
+        .eq("id", order.store_id)
         .maybeSingle();
 
-      if (!existingSaleTx) {
-        const { data: store } = await supabase
-          .from("agent_stores")
-          .select("agent_id")
-          .eq("id", order.store_id)
+      if (store?.agent_id) {
+        const { data: assignment } = await supabase
+          .from("subagent_assignments")
+          .select("parent_agent_id,status")
+          .eq("subagent_user_id", store.agent_id)
+          .eq("status", "active")
           .maybeSingle();
 
-        if (store?.agent_id) {
+        const sellerProfit = Number(order.seller_profit ?? order.agent_profit ?? 0);
+        const parentProfit = Number(order.upstream_agent_profit ?? 0);
+
+        if (assignment?.parent_agent_id) {
+          if (sellerProfit > 0 && !(await hasProfitTx(supabase, order.id, store.agent_id))) {
+            const { data: subProfile } = await supabase.from("profiles").select("profit_balance").eq("user_id", store.agent_id).maybeSingle();
+            const nextSubProfit = Number(subProfile?.profit_balance || 0) + sellerProfit;
+            await supabase.from("profiles").update({ profit_balance: nextSubProfit }).eq("user_id", store.agent_id);
+            await supabase.from("transactions").insert({
+              user_id: store.agent_id,
+              type: "store_sale",
+              status: "success",
+              amount: sellerProfit,
+              related_order_id: order.id,
+              reference: providerReference,
+              description: `Subagent sale profit credited after retry for order ${order.id}`,
+            });
+          }
+
+          if (parentProfit > 0 && !(await hasProfitTx(supabase, order.id, assignment.parent_agent_id))) {
+            const { data: parentProfile } = await supabase.from("profiles").select("profit_balance").eq("user_id", assignment.parent_agent_id).maybeSingle();
+            const nextParentProfit = Number(parentProfile?.profit_balance || 0) + parentProfit;
+            await supabase.from("profiles").update({ profit_balance: nextParentProfit }).eq("user_id", assignment.parent_agent_id);
+            await supabase.from("transactions").insert({
+              user_id: assignment.parent_agent_id,
+              type: "store_sale",
+              status: "success",
+              amount: parentProfit,
+              related_order_id: order.id,
+              reference: providerReference,
+              description: `Subagent network override profit credited after retry for order ${order.id}`,
+            });
+          }
+        } else if (sellerProfit > 0 && !(await hasProfitTx(supabase, order.id, store.agent_id))) {
           const { data: agent } = await supabase.from("profiles").select("profit_balance").eq("user_id", store.agent_id).single();
-          const newProfit = Number(agent?.profit_balance || 0) + Number(order.agent_profit || 0);
+          const newProfit = Number(agent?.profit_balance || 0) + sellerProfit;
           await supabase.from("profiles").update({ profit_balance: newProfit }).eq("user_id", store.agent_id);
           await supabase.from("transactions").insert({
             user_id: store.agent_id,
             type: "store_sale",
             status: "success",
-            amount: Number(order.agent_profit || 0),
+            amount: sellerProfit,
             related_order_id: order.id,
             reference: providerReference,
             description: `Sale credited after successful retry for order ${order.id}`,
