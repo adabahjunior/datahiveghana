@@ -27,6 +27,25 @@ const appendNotes = (existing: string | null | undefined, line: string): string 
   return `${existing}\n${line}`;
 };
 
+const isProviderAccepted = (res: { ok: boolean; body: any }) => {
+  if (!res.ok || !res.body) return false;
+
+  const topStatus = String(res.body?.status || "").toLowerCase();
+  const dataStatus = String(res.body?.data?.status || "").toLowerCase();
+  const hasReference = !!res.body?.data?.reference;
+  const hasOrderId = res.body?.data?.orderId !== undefined && res.body?.data?.orderId !== null;
+
+  const explicitFailure = ["failed", "error", "rejected", "cancelled"].includes(topStatus) ||
+    ["failed", "error", "rejected", "cancelled"].includes(dataStatus);
+  if (explicitFailure) return false;
+
+  if (topStatus === "success") return true;
+  if (["processing", "queued", "pending", "accepted", "delivered"].includes(dataStatus)) return true;
+  if (hasReference || hasOrderId) return true;
+
+  return false;
+};
+
 const purchaseFromProvider = async (
   purchaseUrl: string,
   apiKey: string,
@@ -130,7 +149,7 @@ Deno.serve(async (req) => {
       webhook_url: providerWebhookUrl,
     });
 
-    const providerSuccess = providerRes.ok && providerRes.body?.status === "success";
+    const providerSuccess = isProviderAccepted(providerRes);
     if (!providerSuccess) {
       await supabase
         .from("orders")
