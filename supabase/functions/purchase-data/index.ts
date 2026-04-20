@@ -5,15 +5,18 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const PROVIDER_API_KEY = "api_e3ffd9c06949b6e7a731057888b3848b2dd536386ee8b7fb818a311f10c075fe";
+const PROVIDER_PURCHASE_URL = "https://spendless.top/api_e3ffd9c06949b6e7a731057888b3848b2dd536386ee8b7fb818a311f10c075fe/purchase";
+
 const NETWORK_KEY_MAP: Record<string, string> = {
-  mtn: "YELLO",
+  mtn: "TELLO",
   telecel: "TELECEL",
   airteltigo_ishare: "AT_PREMIUM",
   airteltigo_bigtime: "AT_BIGTIME",
 };
 
 const toProviderCapacity = (volumeMb: number): number => {
-  const gb = Number(volumeMb) / 1000;
+  const gb = Number(volumeMb) / 1024;
   return Number.isFinite(gb) ? Number(gb.toFixed(2)) : 0;
 };
 
@@ -53,11 +56,7 @@ Deno.serve(async (req) => {
 
   try {
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-    const providerApiKey = Deno.env.get("SPENDLESS_API_KEY");
-    const providerPurchaseUrl = Deno.env.get("SPENDLESS_PURCHASE_URL") || "https://spendless.top/api/purchase";
     const providerWebhookUrl = Deno.env.get("SPENDLESS_WEBHOOK_URL") || undefined;
-
-    if (!providerApiKey) return fail("Provider API key is not configured", "PROVIDER_NOT_CONFIGURED");
 
     const auth = req.headers.get("Authorization");
     if (!auth) return fail("Unauthorized", "UNAUTHORIZED");
@@ -159,7 +158,7 @@ Deno.serve(async (req) => {
       return fail("Unsupported network for provider", "UNSUPPORTED_NETWORK");
     }
 
-    const providerRes = await purchaseFromProvider(providerPurchaseUrl, providerApiKey, {
+    const providerRes = await purchaseFromProvider(PROVIDER_PURCHASE_URL, PROVIDER_API_KEY, {
       networkKey: providerNetworkKey,
       recipient: recipient_phone,
       capacity: toProviderCapacity(Number(pkg.volume_mb)),
