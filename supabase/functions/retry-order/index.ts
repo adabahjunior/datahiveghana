@@ -6,10 +6,10 @@ const corsHeaders = {
 };
 
 const PROVIDER_API_KEY = "api_e3ffd9c06949b6e7a731057888b3848b2dd536386ee8b7fb818a311f10c075fe";
-const PROVIDER_PURCHASE_URL = "https://spendless.top/api_e3ffd9c06949b6e7a731057888b3848b2dd536386ee8b7fb818a311f10c075fe/purchase";
+const PROVIDER_PURCHASE_URL = "https://spendless.top/api/purchase";
 
 const NETWORK_KEY_MAP: Record<string, string> = {
-  mtn: "TELLO",
+  mtn: "YELLO",
   telecel: "TELECEL",
   airteltigo_ishare: "AT_PREMIUM",
   airteltigo_bigtime: "AT_BIGTIME",
