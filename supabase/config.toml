@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.manage-subagent]
 verify_jwt = false
+
+[functions.webhook-orders]
+verify_jwt = false

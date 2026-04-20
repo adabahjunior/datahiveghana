@@ -42,6 +42,8 @@ const toProviderCapacity = (volumeMb: number): number => {
   return Number.isFinite(gb) ? Number(gb.toFixed(2)) : 0;
 };
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 const appendNotes = (existing: string | null | undefined, line: string): string => {
   if (!existing) return line;
   return `${existing}\n${line}`;
@@ -52,24 +54,36 @@ const purchaseFromProvider = async (
   apiKey: string,
   payload: { networkKey: string; recipient: string; capacity: number; webhook_url?: string },
 ) => {
-  const response = await fetch(purchaseUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-API-Key": apiKey,
-    },
-    body: JSON.stringify(payload),
-  });
+  const maxAttempts = 4;
+  let lastResult: { ok: boolean; status: number; body: any } | null = null;
 
-  const text = await response.text();
-  let parsed: any = null;
-  try {
-    parsed = text ? JSON.parse(text) : null;
-  } catch {
-    parsed = { raw: text };
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const response = await fetch(purchaseUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-Key": apiKey,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const text = await response.text();
+    let parsed: any = null;
+    try {
+      parsed = text ? JSON.parse(text) : null;
+    } catch {
+      parsed = { raw: text };
+    }
+
+    lastResult = { ok: response.ok, status: response.status, body: parsed };
+
+    const retriable = response.status === 429 || response.status >= 500;
+    if (!retriable || attempt === maxAttempts) break;
+
+    await sleep(500 * 2 ** (attempt - 1));
   }
 
-  return { ok: response.ok, status: response.status, body: parsed };
+  return lastResult || { ok: false, status: 500, body: { status: "error", message: "No provider response" } };
 };
 
 const creditStoreSaleProfit = async (
@@ -264,6 +278,8 @@ Deno.serve(async (req) => {
         .from("orders")
         .update({
           status: "failed",
+          provider_status: "failed",
+          provider_response: providerRes.body,
           notes: appendNotes(order?.notes, `Provider failure (${providerRes.status}): ${JSON.stringify(providerRes.body)}`),
         })
         .eq("id", order?.id);
@@ -272,34 +288,43 @@ Deno.serve(async (req) => {
       return json({ success: true, order_id: order?.id, queued: true, provider_ok: false });
     }
 
+    const providerOrderStatus = String(providerRes.body?.data?.status || "processing").toLowerCase();
+    const finalOrderStatus = providerOrderStatus === "delivered" ? "delivered" : "processing";
     const providerReference = providerRes.body?.data?.reference ? String(providerRes.body.data.reference) : null;
+    const providerOrderId = providerRes.body?.data?.orderId != null ? String(providerRes.body.data.orderId) : null;
     const providerBalance = providerRes.body?.data?.balance != null ? String(providerRes.body.data.balance) : null;
 
     await supabase
       .from("orders")
       .update({
-        status: "delivered",
+        status: finalOrderStatus,
+        provider_reference: providerReference,
+        provider_order_id: providerOrderId,
+        provider_status: providerOrderStatus,
+        provider_response: providerRes.body,
         notes: appendNotes(
           order?.notes,
-          `Provider success${providerReference ? ` | ref: ${providerReference}` : ""}${providerBalance ? ` | balance: ${providerBalance}` : ""}`,
+          `Provider accepted${providerReference ? ` | ref: ${providerReference}` : ""}${providerBalance ? ` | balance: ${providerBalance}` : ""}${providerOrderStatus ? ` | status: ${providerOrderStatus}` : ""}`,
         ),
       })
       .eq("id", order?.id);
 
-    await creditStoreSaleProfit(supabase, {
-      orderId: order.id,
-      packageName: pkg.name,
-      network: pkg.network,
-      providerReference,
-      subagentUserId,
-      subagentProfit: sellerProfit,
-      parentAgentId,
-      parentAgentProfit,
-      fallbackAgentId: store.agent_id,
-      fallbackProfit: sellerProfit,
-    });
+    if (finalOrderStatus === "delivered") {
+      await creditStoreSaleProfit(supabase, {
+        orderId: order.id,
+        packageName: pkg.name,
+        network: pkg.network,
+        providerReference,
+        subagentUserId,
+        subagentProfit: sellerProfit,
+        parentAgentId,
+        parentAgentProfit,
+        fallbackAgentId: store.agent_id,
+        fallbackProfit: sellerProfit,
+      });
+    }
 
-    return json({ success: true, order_id: order?.id });
+    return json({ success: true, order_id: order?.id, provider_status: providerOrderStatus });
   } catch (e) {
     console.error(e);
     return json({ error: (e as Error).message }, 500);
