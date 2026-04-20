@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { formatGHS, formatVolume, networkLabel, calcPaystackCharge } from "@/lib/format";
 import { startPaystackCheckout } from "@/lib/paystack";
 import { toast } from "sonner";
-import { Loader2, MessageCircle, Phone, ArrowLeft } from "lucide-react";
+import { Loader2, MessageCircle, Phone } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Sun, Moon } from "lucide-react";
 import "@/styles/store-experience.css";
@@ -179,7 +179,7 @@ export default function PublicStore() {
       </section>
 
       <footer className="border-t border-border">
-        <div className="max-w-5xl mx-auto px-6 lg:px-10 py-8 flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+        <div className="max-w-5xl mx-auto px-6 lg:px-10 py-8 flex flex-col sm:flex-row gap-4 justify-start items-start sm:items-center">
           <div className="flex flex-wrap items-center gap-4 text-sm">
             <span className="flex items-center gap-2 text-muted-foreground"><Phone className="h-4 w-4" /> {store.support_phone}</span>
             {store.whatsapp_link && (
@@ -188,7 +188,6 @@ export default function PublicStore() {
               </a>
             )}
           </div>
-          <Link to="/" className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"><ArrowLeft className="h-3 w-3" /> DataHive Ghana</Link>
         </div>
       </footer>
 
