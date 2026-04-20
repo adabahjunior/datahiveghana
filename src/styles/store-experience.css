@@ -1,0 +1,132 @@
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Sora:wght@500;600;700;800&display=swap");
+
+.store-canvas {
+  position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 10% 10%, hsl(46 100% 82% / 0.45), transparent 35%),
+    radial-gradient(circle at 85% 20%, hsl(197 100% 65% / 0.2), transparent 35%),
+    linear-gradient(170deg, hsl(var(--background)), hsl(var(--background)) 55%, hsl(210 30% 98%));
+}
+
+.dark .store-canvas {
+  background:
+    radial-gradient(circle at 10% 10%, hsl(46 100% 62% / 0.18), transparent 40%),
+    radial-gradient(circle at 85% 20%, hsl(197 100% 65% / 0.16), transparent 38%),
+    linear-gradient(165deg, hsl(var(--background)), hsl(220 20% 7%));
+}
+
+.store-canvas::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(to right, hsl(var(--foreground) / 0.025) 1px, transparent 1px), linear-gradient(to bottom, hsl(var(--foreground) / 0.025) 1px, transparent 1px);
+  background-size: 22px 22px;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.store-canvas h1,
+.store-canvas h2,
+.store-canvas h3,
+.store-canvas h4 {
+  font-family: "Sora", "Segoe UI", sans-serif;
+  letter-spacing: -0.02em;
+}
+
+.store-canvas,
+.store-canvas p,
+.store-canvas span,
+.store-canvas label,
+.store-canvas button,
+.store-canvas input,
+.store-canvas a,
+.store-canvas th,
+.store-canvas td {
+  font-family: "Plus Jakarta Sans", "Segoe UI", sans-serif;
+}
+
+.store-panel {
+  border: 1px solid hsl(var(--border) / 0.75);
+  background: hsl(var(--card) / 0.82);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 14px 35px hsl(210 50% 8% / 0.07);
+}
+
+.dark .store-panel {
+  box-shadow: 0 14px 35px hsl(0 0% 0% / 0.35);
+}
+
+.store-panel-strong {
+  border: 1px solid hsl(var(--primary) / 0.35);
+  background: linear-gradient(145deg, hsl(var(--card) / 0.95), hsl(var(--primary) / 0.08));
+}
+
+.store-kpi {
+  border-radius: 0.9rem;
+  border: 1px solid hsl(var(--border) / 0.8);
+  background: linear-gradient(150deg, hsl(var(--card) / 0.94), hsl(0 0% 100% / 0.74));
+}
+
+.dark .store-kpi {
+  background: linear-gradient(150deg, hsl(var(--card) / 0.95), hsl(220 20% 10% / 0.85));
+}
+
+.store-pulse {
+  position: relative;
+  overflow: hidden;
+}
+
+.store-pulse::after {
+  content: "";
+  position: absolute;
+  top: -120%;
+  left: -20%;
+  width: 45%;
+  height: 280%;
+  transform: rotate(24deg);
+  background: linear-gradient(to right, transparent, hsl(0 0% 100% / 0.32), transparent);
+  animation: store-sweep 4.5s linear infinite;
+}
+
+@keyframes store-sweep {
+  0% {
+    transform: translateX(-240%) rotate(24deg);
+  }
+  100% {
+    transform: translateX(320%) rotate(24deg);
+  }
+}
+
+.store-reveal {
+  animation: store-rise 0.55s ease both;
+}
+
+.store-delay-1 {
+  animation-delay: 70ms;
+}
+
+.store-delay-2 {
+  animation-delay: 130ms;
+}
+
+.store-delay-3 {
+  animation-delay: 190ms;
+}
+
+@keyframes store-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.store-chip {
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card) / 0.82);
+  color: hsl(var(--foreground));
+}

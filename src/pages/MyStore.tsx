@@ -13,6 +13,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
+import "@/styles/store-experience.css";
 
 const ACTIVATION_FEE = 80;
 
@@ -183,7 +184,7 @@ export default function MyStore() {
   // Not yet a seller (agent or subagent) — show agent activation path
   if (!isSeller) {
     return (
-      <div className="animate-fade-in">
+      <div className="store-canvas store-dashboard animate-fade-in">
         <PageHeader title="Become an Agent" description="Unlock wholesale prices and run your own data store." />
 
         <div className="grid lg:grid-cols-2 gap-8">
@@ -206,7 +207,7 @@ export default function MyStore() {
             ))}
           </div>
 
-          <Card className="p-8 border-primary/30">
+          <Card className="p-8 border-primary/30 store-panel store-panel-strong store-pulse">
             <p className="text-xs uppercase tracking-wider text-muted-foreground">One-time fee</p>
             <p className="text-5xl font-bold mt-2">{formatGHS(ACTIVATION_FEE)}</p>
             <p className="text-sm text-muted-foreground mt-2">Pay once. Keep agent benefits forever.</p>
@@ -235,9 +236,9 @@ export default function MyStore() {
   // Agent without store — create form
   if (isSeller && !store) {
     return (
-      <div className="animate-fade-in">
+      <div className="store-canvas store-dashboard animate-fade-in">
         <PageHeader title="Create Your Store" description="Set up your branded mini-website. Customers will buy from you here." />
-        <Card className="p-8 max-w-xl">
+        <Card className="p-8 max-w-xl store-panel">
           <form onSubmit={handleCreateStore} className="space-y-5">
             <div className="space-y-2">
               <Label htmlFor="sn">Store Name</Label>
@@ -284,18 +285,18 @@ export default function MyStore() {
   });
 
   return (
-    <div className="animate-fade-in">
+    <div className="store-canvas store-dashboard animate-fade-in">
       <PageHeader
         title={store.store_name}
         description={isSubAgent ? "Manage your subagent store pricing and margins." : "Manage your store catalog and pricing."}
         action={
-          <Button variant="outline" asChild>
+          <Button variant="outline" asChild className="rounded-full bg-card/70">
             <a href={storeUrl} target="_blank" rel="noreferrer">View Store <ExternalLink className="h-3 w-3 ml-2" /></a>
           </Button>
         }
       />
 
-      <Card className="p-6 mb-8 bg-primary/5 border-primary/30">
+      <Card className="p-6 mb-8 bg-primary/5 border-primary/30 store-panel store-panel-strong store-reveal">
         <div className="flex items-start gap-3">
           <StoreIcon className="h-5 w-5 text-primary mt-0.5" />
           <div className="flex-1 min-w-0">
@@ -306,7 +307,7 @@ export default function MyStore() {
         </div>
       </Card>
 
-      <Card className="p-6 mb-8">
+      <Card className="p-6 mb-8 store-panel store-reveal store-delay-1">
         <h3 className="font-bold text-base">Store Support Channels</h3>
         <p className="text-sm text-muted-foreground mt-1">These details are shown on your public store and used for your store WhatsApp support link.</p>
         <form onSubmit={handleSaveStoreDetails} className="grid md:grid-cols-3 gap-4 mt-5 items-end">
@@ -338,12 +339,12 @@ export default function MyStore() {
       </Card>
 
       <div className="grid sm:grid-cols-3 gap-5 mb-8">
-        <Card className="p-5"><p className="text-xs text-muted-foreground uppercase">Profit Balance</p><p className="text-2xl font-bold mt-1">{formatGHS(profile.profit_balance)}</p></Card>
-        <Card className="p-5"><p className="text-xs text-muted-foreground uppercase">Listed Packages</p><p className="text-2xl font-bold mt-1">{Object.values(storePrices).filter((s) => s.listed).length}</p></Card>
-        <Card className="p-5"><p className="text-xs text-muted-foreground uppercase">Networks</p><p className="text-2xl font-bold mt-1">{sortedNetworks.length}</p></Card>
+        <Card className="p-5 store-kpi store-reveal"><p className="text-xs text-muted-foreground uppercase">Profit Balance</p><p className="text-2xl font-bold mt-1">{formatGHS(profile.profit_balance)}</p></Card>
+        <Card className="p-5 store-kpi store-reveal store-delay-1"><p className="text-xs text-muted-foreground uppercase">Listed Packages</p><p className="text-2xl font-bold mt-1">{Object.values(storePrices).filter((s) => s.listed).length}</p></Card>
+        <Card className="p-5 store-kpi store-reveal store-delay-2"><p className="text-xs text-muted-foreground uppercase">Networks</p><p className="text-2xl font-bold mt-1">{sortedNetworks.length}</p></Card>
       </div>
 
-      <Card className="overflow-hidden">
+      <Card className="overflow-hidden store-panel store-reveal store-delay-3">
         <div className="p-6 border-b border-border">
           <h3 className="font-bold">Catalog & Pricing</h3>
           <p className="text-sm text-muted-foreground mt-1">

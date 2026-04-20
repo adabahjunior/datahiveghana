@@ -11,6 +11,7 @@ import { formatGHS, calcPaystackCharge } from "@/lib/format";
 import { startPaystackCheckout } from "@/lib/paystack";
 import { validateEmailSafety } from "@/lib/emailSafety";
 import { toast } from "sonner";
+import "@/styles/store-experience.css";
 
 const SUBAGENT_BASE_FEE = 30;
 
@@ -202,9 +203,9 @@ export default function SubAgentSignup() {
 
   if (!store) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background store-canvas">
         <section className="max-w-5xl mx-auto px-6 lg:px-10 py-12">
-          <Card className="p-8 w-full max-w-xl mx-auto text-center">
+          <Card className="p-8 w-full max-w-xl mx-auto text-center store-panel">
           <h1 className="text-2xl font-bold">Subagent Program</h1>
           <p className="text-muted-foreground mt-2">Store not found.</p>
           <Button asChild className="mt-6"><Link to="/">Go Home</Link></Button>
@@ -215,11 +216,12 @@ export default function SubAgentSignup() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background store-canvas">
       <section className="max-w-5xl mx-auto px-6 lg:px-10 py-12">
         <div className="w-full max-w-2xl mx-auto">
-        <Card className="p-6 sm:p-8 border-primary/30">
+        <Card className="p-6 sm:p-8 border-primary/30 store-panel store-panel-strong store-reveal">
           <div className="text-center mb-8">
+            <p className="inline-flex rounded-full px-3 py-1 text-xs tracking-wider uppercase store-chip mb-3">Subagent Access Program</p>
             <h1 className="text-3xl font-bold">{store.store_name} Subagent Program</h1>
             <p className="text-muted-foreground mt-2">Create your account on this page, pay activation, and unlock your subagent dashboard.</p>
           </div>
@@ -238,7 +240,7 @@ export default function SubAgentSignup() {
           </div>
 
           {!user && (
-            <div className="rounded-lg border border-border p-4 mb-8 max-w-lg mx-auto w-full">
+            <div className="rounded-lg border border-border p-4 mb-8 max-w-lg mx-auto w-full store-panel">
               <div className="flex gap-2 mb-4">
                 <Button
                   type="button"

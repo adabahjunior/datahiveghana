@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { networkLabel, formatGHS, formatVolume } from "@/lib/format";
 import { Loader2, Users } from "lucide-react";
 import { toast } from "sonner";
+import "@/styles/store-experience.css";
 
 const SUBAGENT_BASE_FEE = 30;
 
@@ -172,9 +173,9 @@ export default function SubAgents() {
 
   if (!isAgent || isSubAgent) {
     return (
-      <div className="animate-fade-in">
+      <div className="store-canvas store-dashboard animate-fade-in">
         <PageHeader title="Sub Agents" description="Only primary agents can manage subagents." />
-        <Card className="p-8">
+        <Card className="p-8 store-panel">
           <p className="text-sm text-muted-foreground">Subagent recruitment and base price controls are available to primary agent accounts only.</p>
         </Card>
       </div>
@@ -187,9 +188,9 @@ export default function SubAgents() {
 
   if (!store) {
     return (
-      <div className="animate-fade-in">
+      <div className="store-canvas store-dashboard animate-fade-in">
         <PageHeader title="Sub Agents" description="Create your store first to recruit subagents." />
-        <Card className="p-8">
+        <Card className="p-8 store-panel">
           <Button asChild><Link to="/my-store">Create My Store</Link></Button>
         </Card>
       </div>
@@ -197,28 +198,28 @@ export default function SubAgents() {
   }
 
   return (
-    <div className="animate-fade-in">
+    <div className="store-canvas store-dashboard animate-fade-in">
       <PageHeader
         title="Sub Agents"
         description="Set signup pricing and package base prices for your assigned subagent network."
       />
 
       <div className="grid lg:grid-cols-3 gap-5 mb-8">
-        <Card className="p-5">
+        <Card className="p-5 store-kpi store-reveal">
           <p className="text-xs uppercase text-muted-foreground">Platform Base Fee</p>
           <p className="text-2xl font-bold mt-1">{formatGHS(SUBAGENT_BASE_FEE)}</p>
         </Card>
-        <Card className="p-5">
+        <Card className="p-5 store-kpi store-reveal store-delay-1">
           <p className="text-xs uppercase text-muted-foreground">Your Addon</p>
           <p className="text-2xl font-bold mt-1">{formatGHS(Number(addon) || 0)}</p>
         </Card>
-        <Card className="p-5">
+        <Card className="p-5 store-kpi store-reveal store-delay-2">
           <p className="text-xs uppercase text-muted-foreground">Subagent Signup Price</p>
           <p className="text-2xl font-bold mt-1">{formatGHS(totalSignupFee)}</p>
         </Card>
       </div>
 
-      <Card className="p-6 mb-8">
+      <Card className="p-6 mb-8 store-panel store-panel-strong store-reveal store-delay-1">
         <h3 className="font-semibold mb-1">Subagent Signup Settings</h3>
         <p className="text-sm text-muted-foreground mb-4">Subagents joining through your store pay base 30 GHS plus your addon.</p>
         <div className="grid md:grid-cols-[220px_180px] gap-3 items-end">
@@ -233,7 +234,7 @@ export default function SubAgents() {
         <p className="text-xs text-muted-foreground mt-3">Public signup URL: {window.location.origin}/store/{store.slug}/subagent</p>
       </Card>
 
-      <Card className="overflow-hidden mb-8">
+      <Card className="overflow-hidden mb-8 store-panel store-reveal store-delay-2">
         <div className="p-6 border-b border-border">
           <h3 className="font-bold">Subagent Base Package Prices</h3>
           <p className="text-sm text-muted-foreground mt-1">These are the base prices your subagents buy at from wallet purchases.</p>
@@ -283,7 +284,7 @@ export default function SubAgents() {
         </div>
       </Card>
 
-      <Card className="overflow-hidden">
+      <Card className="overflow-hidden store-panel store-reveal store-delay-3">
         <div className="p-6 border-b border-border flex items-center gap-2">
           <Users className="h-4 w-4" />
           <h3 className="font-bold">Assigned Subagents</h3>

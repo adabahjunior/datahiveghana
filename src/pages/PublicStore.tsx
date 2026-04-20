@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { Loader2, MessageCircle, Phone, ArrowLeft } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Sun, Moon } from "lucide-react";
+import "@/styles/store-experience.css";
 
 const dotClass: Record<string, string> = {
   mtn: "bg-mtn",
@@ -108,31 +109,32 @@ export default function PublicStore() {
   const networks = Array.from(new Set(items.map((i) => i.package.network)));
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border">
+    <div className="store-canvas store-public min-h-screen">
+      <header className="border-b border-border/60 backdrop-blur-sm bg-background/70">
         <div className="max-w-5xl mx-auto px-6 lg:px-10 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-lg bg-primary flex items-center justify-center">
+            <div className="h-9 w-9 rounded-xl bg-primary/90 flex items-center justify-center shadow-lg">
               <span className="text-primary-foreground font-bold">{store.store_name[0]?.toUpperCase()}</span>
             </div>
             <div>
               <h1 className="font-bold leading-tight">{store.store_name}</h1>
-              <p className="text-[11px] text-muted-foreground leading-tight">Powered by DataHive Ghana</p>
+              <p className="text-[11px] text-muted-foreground leading-tight uppercase tracking-wider">Independent Agent Storefront</p>
             </div>
           </div>
-          <Button variant="ghost" size="icon" onClick={toggleTheme}>
+          <Button variant="ghost" size="icon" onClick={toggleTheme} className="rounded-xl border border-border/70 bg-card/70">
             {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </Button>
         </div>
       </header>
 
       <section className="max-w-5xl mx-auto px-6 lg:px-10 py-12">
-        <div className="space-y-3 mb-10">
+        <div className="space-y-3 mb-10 store-reveal">
+          <p className="inline-flex rounded-full px-3 py-1 text-xs tracking-wider uppercase store-chip">Fast Fulfillment Network</p>
           <h2 className="text-3xl lg:text-4xl font-bold">Buy data instantly</h2>
           <p className="text-muted-foreground">Choose a bundle below. Delivery is automatic.</p>
         </div>
 
-        <Card className="p-5 mb-8 border-primary/30 bg-primary/5">
+        <Card className="p-5 mb-8 store-panel store-panel-strong store-reveal store-delay-1">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <p className="text-xs uppercase tracking-wider text-muted-foreground">Subagent Program</p>
@@ -141,22 +143,22 @@ export default function PublicStore() {
                 Final signup fee: <span className="font-semibold text-foreground">{formatGHS(subAgentBaseFee + Number(store.subagent_fee_addon || 0))}</span>
               </p>
             </div>
-            <Button asChild>
+            <Button asChild className="store-pulse">
               <Link to={`/store/${store.slug}/subagent-program`}>View Subagent Program</Link>
             </Button>
           </div>
         </Card>
 
-        <div className="flex flex-wrap gap-2 mb-8">
-          <Button variant={filter === "all" ? "default" : "outline"} size="sm" onClick={() => setFilter("all")}>All</Button>
+        <div className="flex flex-wrap gap-2 mb-8 store-reveal store-delay-2">
+          <Button className="rounded-full" variant={filter === "all" ? "default" : "outline"} size="sm" onClick={() => setFilter("all")}>All</Button>
           {networks.map((n) => (
-            <Button key={n} variant={filter === n ? "default" : "outline"} size="sm" onClick={() => setFilter(n)}>{networkLabel[n]}</Button>
+            <Button className="rounded-full" key={n} variant={filter === n ? "default" : "outline"} size="sm" onClick={() => setFilter(n)}>{networkLabel[n]}</Button>
           ))}
         </div>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {filtered.map((i) => (
-            <Card key={i.package.id} className="p-6 hover:border-primary/50 transition-colors">
+            <Card key={i.package.id} className="p-6 store-panel hover:border-primary/50 transition-colors store-reveal store-delay-3">
               <div className="flex items-center gap-2 mb-3">
                 <span className={`h-2 w-2 rounded-full ${dotClass[i.package.network]}`} />
                 <span className="text-xs uppercase tracking-wider text-muted-foreground">{networkLabel[i.package.network]}</span>
