@@ -27,20 +27,29 @@ const appendNotes = (existing: string | null | undefined, line: string): string 
   return `${existing}\n${line}`;
 };
 
+const acceptedStatuses = new Set(["success", "ok", "accepted", "processing", "queued", "pending", "delivered"]);
+const failedStatuses = new Set(["failed", "error", "rejected", "cancelled"]);
+
+const extractProviderMessage = (body: any): string | null => {
+  const msg = body?.message || body?.error || body?.detail || body?.data?.message;
+  if (!msg) return null;
+  return String(msg);
+};
+
 const isProviderAccepted = (res: { ok: boolean; body: any }) => {
   if (!res.ok || !res.body) return false;
 
   const topStatus = String(res.body?.status || "").toLowerCase();
   const dataStatus = String(res.body?.data?.status || "").toLowerCase();
+  const message = String(extractProviderMessage(res.body) || "").toLowerCase();
   const hasReference = !!res.body?.data?.reference;
   const hasOrderId = res.body?.data?.orderId !== undefined && res.body?.data?.orderId !== null;
 
-  const explicitFailure = ["failed", "error", "rejected", "cancelled"].includes(topStatus) ||
-    ["failed", "error", "rejected", "cancelled"].includes(dataStatus);
+  const explicitFailure = failedStatuses.has(topStatus) || failedStatuses.has(dataStatus);
   if (explicitFailure) return false;
 
-  if (topStatus === "success") return true;
-  if (["processing", "queued", "pending", "accepted", "delivered"].includes(dataStatus)) return true;
+  if (acceptedStatuses.has(topStatus) || acceptedStatuses.has(dataStatus)) return true;
+  if (message.includes("accepted") || message.includes("queued") || message.includes("processing") || message.includes("pending") || message.includes("successful")) return true;
   if (hasReference || hasOrderId) return true;
 
   return false;
@@ -159,7 +168,13 @@ Deno.serve(async (req) => {
         })
         .eq("id", order.id);
 
-      return json({ success: false, error: "Provider still failed", provider: providerRes.body }, 200);
+      const providerMessage = extractProviderMessage(providerRes.body);
+      return json({
+        success: false,
+        error: providerMessage ? `Provider failed: ${providerMessage}` : "Provider still failed",
+        provider: providerRes.body,
+        provider_status_code: providerRes.status,
+      }, 200);
     }
 
     const providerReference = providerRes.body?.data?.reference ? String(providerRes.body.data.reference) : null;
