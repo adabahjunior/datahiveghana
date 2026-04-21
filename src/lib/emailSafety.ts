@@ -21,7 +21,7 @@ const SUSPICIOUS_LOCAL_PARTS = [
   "no-reply",
 ];
 
-export const validateEmailSafety = (email: string): { ok: true } | { ok: false; message: string } => {
+export const validateEmailSafety = (email: string): { ok: boolean; message?: string } => {
   const normalized = email.trim().toLowerCase();
   const parts = normalized.split("@");
 

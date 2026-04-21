@@ -171,8 +171,8 @@ export type Database = {
           seller_profit: number
           status: Database["public"]["Enums"]["order_status"]
           store_id: string | null
-          upstream_agent_profit: number
           updated_at: string
+          upstream_agent_profit: number
           volume_mb: number
         }
         Insert: {
@@ -194,8 +194,8 @@ export type Database = {
           seller_profit?: number
           status?: Database["public"]["Enums"]["order_status"]
           store_id?: string | null
-          upstream_agent_profit?: number
           updated_at?: string
+          upstream_agent_profit?: number
           volume_mb: number
         }
         Update: {
@@ -217,8 +217,8 @@ export type Database = {
           seller_profit?: number
           status?: Database["public"]["Enums"]["order_status"]
           store_id?: string | null
-          upstream_agent_profit?: number
           updated_at?: string
+          upstream_agent_profit?: number
           volume_mb?: number
         }
         Relationships: [
@@ -529,9 +529,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_suspicious_email: { Args: { _email: string }; Returns: boolean }
     }
     Enums: {
-      app_role: "user" | "agent" | "sub_agent" | "admin"
+      app_role: "user" | "agent" | "admin" | "sub_agent"
       network_type:
         | "mtn"
         | "telecel"
@@ -673,7 +674,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["user", "agent", "admin"],
+      app_role: ["user", "agent", "admin", "sub_agent"],
       network_type: [
         "mtn",
         "telecel",
