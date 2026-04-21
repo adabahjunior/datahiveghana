@@ -5,16 +5,26 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
-import { formatDateTime, formatVolume, networkLabel } from "@/lib/format";
+import { formatDateTime, formatGHS, formatVolume, networkLabel } from "@/lib/format";
 import { toast } from "sonner";
+
+const sourceLabel: Record<string, string> = {
+  direct: "Direct",
+  agent_store: "Agent Store",
+  subagent_store: "Subagent Store",
+};
 
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [phoneSearch, setPhoneSearch] = useState("");
 
   const load = async () => {
-    const { data } = await supabase.from("orders").select("*").order("created_at", { ascending: false }).limit(500);
-    setOrders(data || []);
+    const { data, error } = await supabase.functions.invoke("admin-orders");
+    if (error || !data?.success) {
+      toast.error(data?.error || error?.message || "Could not load orders");
+      return;
+    }
+    setOrders(data.orders || []);
   };
 
   useEffect(() => {
@@ -36,8 +46,10 @@ export default function AdminOrdersPage() {
   };
 
   const filtered = useMemo(() => {
-    if (!phoneSearch.trim()) return orders;
-    return orders.filter((o) => (o.recipient_phone || "").toLowerCase().includes(phoneSearch.toLowerCase()));
+    const term = phoneSearch.trim().toLowerCase();
+    if (!term) return orders;
+    return orders.filter((o) => [o.recipient_phone, o.store_name, sourceLabel[o.source]]
+      .some((value) => String(value || "").toLowerCase().includes(term)));
   }, [orders, phoneSearch]);
 
   return (
@@ -49,7 +61,7 @@ export default function AdminOrdersPage() {
 
       <Card className="p-4">
         <Input
-          placeholder="Search by phone number"
+          placeholder="Search by phone number, store name, or source"
           value={phoneSearch}
           onChange={(e) => setPhoneSearch(e.target.value)}
         />
@@ -61,8 +73,11 @@ export default function AdminOrdersPage() {
             <TableRow>
               <TableHead>Date</TableHead>
               <TableHead>Phone Number</TableHead>
+              <TableHead>Source</TableHead>
+              <TableHead>Store</TableHead>
               <TableHead>Data Volume</TableHead>
               <TableHead>Network</TableHead>
+              <TableHead>Amount</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Action</TableHead>
             </TableRow>
@@ -72,8 +87,11 @@ export default function AdminOrdersPage() {
               <TableRow key={o.id}>
                 <TableCell className="text-sm">{formatDateTime(o.created_at)}</TableCell>
                 <TableCell>{o.recipient_phone}</TableCell>
+                <TableCell><Badge variant="outline">{sourceLabel[o.source] || "Direct"}</Badge></TableCell>
+                <TableCell className="text-sm">{o.store_name || "-"}</TableCell>
                 <TableCell>{formatVolume(o.volume_mb)}</TableCell>
                 <TableCell>{networkLabel[o.network]}</TableCell>
+                <TableCell>{formatGHS(o.amount_paid)}</TableCell>
                 <TableCell>
                   <Badge variant={o.status === "failed" ? "destructive" : "secondary"}>{o.status}</Badge>
                 </TableCell>
