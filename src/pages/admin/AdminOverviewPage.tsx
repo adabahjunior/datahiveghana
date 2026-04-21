@@ -12,6 +12,8 @@ type Stats = {
   failedOrders: number;
   revenue: number;
   totalWithdrawals: number;
+  storeOrders: number;
+  subagentStoreOrders: number;
 };
 
 export default function AdminOverviewPage() {
@@ -24,33 +26,31 @@ export default function AdminOverviewPage() {
     failedOrders: 0,
     revenue: 0,
     totalWithdrawals: 0,
+    storeOrders: 0,
+    subagentStoreOrders: 0,
   });
 
   useEffect(() => {
     const load = async () => {
-      const [{ count: users }, { count: agents }, { data: orders }, { data: withdrawals }] = await Promise.all([
+      const [{ count: users }, { count: agents }, { data: orderPayload }] = await Promise.all([
         supabase.from("profiles").select("id", { count: "exact", head: true }),
         supabase.from("profiles").select("id", { count: "exact", head: true }).eq("is_agent", true),
-        supabase.from("orders").select("status,amount_paid"),
-        supabase.from("withdrawals").select("amount,status"),
+        supabase.functions.invoke("admin-orders"),
       ]);
 
-      const allOrders = orders || [];
-      const successfulOrders = allOrders.filter((o) => o.status === "delivered").length;
-      const pendingOrders = allOrders.filter((o) => o.status === "pending" || o.status === "processing").length;
-      const failedOrders = allOrders.filter((o) => o.status === "failed").length;
-      const revenue = allOrders.filter((o) => o.status !== "failed").reduce((sum, order) => sum + Number(order.amount_paid || 0), 0);
-      const totalWithdrawals = (withdrawals || []).filter((w) => w.status === "paid").reduce((sum, w) => sum + Number(w.amount || 0), 0);
+      const adminStats = orderPayload?.success ? orderPayload.stats : null;
 
       setStats({
         users: users || 0,
         agents: agents || 0,
-        orders: allOrders.length,
-        successfulOrders,
-        pendingOrders,
-        failedOrders,
-        revenue,
-        totalWithdrawals,
+        orders: adminStats?.orders || 0,
+        successfulOrders: adminStats?.successfulOrders || 0,
+        pendingOrders: adminStats?.pendingOrders || 0,
+        failedOrders: adminStats?.failedOrders || 0,
+        revenue: adminStats?.revenue || 0,
+        totalWithdrawals: adminStats?.totalWithdrawals || 0,
+        storeOrders: adminStats?.storeOrders || 0,
+        subagentStoreOrders: adminStats?.subagentStoreOrders || 0,
       });
     };
 
@@ -69,6 +69,8 @@ export default function AdminOverviewPage() {
         <Stat title="Total Agents" value={stats.agents.toString()} />
         <Stat title="All Orders" value={stats.orders.toString()} />
         <Stat title="Revenue" value={formatGHS(stats.revenue)} />
+        <Stat title="Agent Store Orders" value={stats.storeOrders.toString()} />
+        <Stat title="Subagent Store Orders" value={stats.subagentStoreOrders.toString()} />
         <Stat title="Delivered Orders" value={stats.successfulOrders.toString()} />
         <Stat title="Pending Orders" value={stats.pendingOrders.toString()} />
         <Stat title="Failed Orders" value={stats.failedOrders.toString()} />
