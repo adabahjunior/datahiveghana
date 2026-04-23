@@ -1,13 +1,13 @@
 project_id = "cscakblvipadupebrpkh"
 
 [functions.simulate-topup]
-verify_jwt = false
+verify_jwt = true
 
 [functions.purchase-data]
-verify_jwt = false
+verify_jwt = true
 
 [functions.activate-agent]
-verify_jwt = false
+verify_jwt = true
 
 [functions.request-withdrawal]
 verify_jwt = true
@@ -19,16 +19,16 @@ verify_jwt = false
 verify_jwt = true
 
 [functions.retry-order]
-verify_jwt = false
+verify_jwt = true
 
 [functions.admin-orders]
 verify_jwt = false
 
 [functions.activate-subagent]
-verify_jwt = false
+verify_jwt = true
 
 [functions.manage-subagent]
-verify_jwt = false
+verify_jwt = true
 
 [functions.webhook-orders]
 verify_jwt = false

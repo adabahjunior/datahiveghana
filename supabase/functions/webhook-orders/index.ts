@@ -5,8 +5,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-webhook-signature",
 };
 
-const WEBHOOK_SECRET = "direct";
-
 const appendNotes = (existing: string | null | undefined, line: string): string => {
   if (!existing) return line;
   return `${existing}\n${line}`;
@@ -26,11 +24,11 @@ const timingSafeEqual = (a: string, b: string): boolean => {
   return diff === 0;
 };
 
-const computeSignature = async (payload: string) => {
+const computeSignature = async (payload: string, webhookSecret: string) => {
   const encoder = new TextEncoder();
   const key = await crypto.subtle.importKey(
     "raw",
-    encoder.encode(WEBHOOK_SECRET),
+    encoder.encode(webhookSecret),
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign"],
@@ -172,9 +170,12 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ success: false, error: "Method not allowed" }, 405);
 
   try {
+    const webhookSecret = Deno.env.get("SPENDLESS_WEBHOOK_SECRET");
+    if (!webhookSecret) return json({ success: false, error: "Webhook secret is not configured" }, 500);
+
     const rawBody = await req.text();
     const receivedSignature = req.headers.get("X-WEBHOOK-SIGNATURE") || "";
-    const expectedSignature = await computeSignature(rawBody);
+    const expectedSignature = await computeSignature(rawBody, webhookSecret);
 
     if (!timingSafeEqual(receivedSignature, expectedSignature)) {
       return json({ success: false, error: "Invalid signature" }, 401);

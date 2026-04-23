@@ -5,9 +5,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const PROVIDER_API_KEY = "api_e3ffd9c06949b6e7a731057888b3848b2dd536386ee8b7fb818a311f10c075fe";
-const PROVIDER_PURCHASE_URL = "https://spendless.top/api/purchase";
-
 const NETWORK_KEY_MAP: Record<string, string> = {
   mtn: "YELLO",
   telecel: "TELECEL",
@@ -165,6 +162,10 @@ const creditStoreSaleProfit = async (
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
+    const providerApiKey = Deno.env.get("SPENDLESS_API_KEY");
+    const providerPurchaseUrl = Deno.env.get("SPENDLESS_PURCHASE_URL") || "https://spendless.top/api/purchase";
+    if (!providerApiKey) return json({ error: "Provider API key is not configured" }, 500);
+
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const paystackSecretKey = Deno.env.get("PAYSTACK_SECRET_KEY");
     const providerWebhookUrl = Deno.env.get("SPENDLESS_WEBHOOK_URL") || undefined;
@@ -265,7 +266,7 @@ Deno.serve(async (req) => {
       return json({ success: false, error: "Unsupported network for provider", code: "UNSUPPORTED_NETWORK" });
     }
 
-    const providerRes = await purchaseFromProvider(PROVIDER_PURCHASE_URL, PROVIDER_API_KEY, {
+    const providerRes = await purchaseFromProvider(providerPurchaseUrl, providerApiKey, {
       networkKey: providerNetworkKey,
       recipient: recipient_phone,
       capacity: toProviderCapacity(Number(pkg.volume_mb)),

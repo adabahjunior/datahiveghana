@@ -26,18 +26,35 @@ Deno.serve(async (req) => {
     if (!profile?.is_agent) return json({ error: "Agents only" }, 403);
     if (Number(profile.profit_balance) < amt) return json({ error: "Exceeds profit balance" }, 400);
 
-    // Lock funds: subtract from profit_balance immediately
+    // Atomic debit prevents race-condition overdrafts.
     const newProfit = Number(profile.profit_balance) - amt;
-    await supabase.from("profiles").update({ profit_balance: newProfit }).eq("user_id", user.id);
+    const { data: debitedProfile, error: debitError } = await supabase
+      .from("profiles")
+      .update({ profit_balance: newProfit })
+      .eq("user_id", user.id)
+      .gte("profit_balance", amt)
+      .select("profit_balance")
+      .maybeSingle();
 
-    await supabase.from("withdrawals").insert({
+    if (debitError || !debitedProfile) return json({ error: "Insufficient or locked balance" }, 400);
+
+    const { error: withdrawalError } = await supabase.from("withdrawals").insert({
       agent_id: user.id, amount: amt, momo_number, momo_name, network, status: "pending",
     });
+    if (withdrawalError) {
+      await supabase.from("profiles").update({ profit_balance: Number(profile.profit_balance) }).eq("user_id", user.id);
+      return json({ error: "Withdrawal request failed" }, 500);
+    }
 
-    await supabase.from("transactions").insert({
+    const { error: txError } = await supabase.from("transactions").insert({
       user_id: user.id, type: "withdrawal", status: "pending",
       amount: amt, description: `Withdrawal request to ${network} ${momo_number}`,
     });
+    if (txError) {
+      await supabase.from("withdrawals").delete().eq("agent_id", user.id).eq("amount", amt).eq("status", "pending");
+      await supabase.from("profiles").update({ profit_balance: Number(profile.profit_balance) }).eq("user_id", user.id);
+      return json({ error: "Withdrawal transaction log failed" }, 500);
+    }
 
     return json({ success: true });
   } catch (e) {
