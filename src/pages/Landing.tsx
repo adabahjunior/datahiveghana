@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { ArrowRight, Smartphone, Store, TrendingUp, Zap, Shield, Wallet } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Sun, Moon } from "lucide-react";
+import { BrandLogo } from "@/components/BrandLogo";
 
 export default function Landing() {
   const { theme, toggleTheme } = useTheme();
@@ -14,10 +15,7 @@ export default function Landing() {
       <header className="border-b border-border">
         <div className="max-w-6xl mx-auto px-6 lg:px-10 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold">D</span>
-            </div>
-            <span className="font-bold">BenzosData Ghana</span>
+            <BrandLogo logoClassName="h-8 w-8" textClassName="text-sm" subtitleClassName="text-[11px]" name="BenzosData" subtitle="Ghana" />
           </Link>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon" onClick={toggleTheme}>

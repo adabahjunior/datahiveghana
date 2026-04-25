@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import { z } from "zod";
 import { validateEmailSafety } from "@/lib/emailSafety";
+import { BrandLogo } from "@/components/BrandLogo";
 
 const signUpSchema = z.object({
   email: z.string().trim().email("Invalid email").max(255),
@@ -74,13 +75,7 @@ export default function Auth() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background px-4 py-12">
       <Link to="/" className="flex items-center gap-2 mb-10">
-        <div className="h-10 w-10 rounded-lg bg-primary flex items-center justify-center">
-          <span className="text-primary-foreground font-bold text-xl">D</span>
-        </div>
-        <div>
-          <h1 className="font-bold text-lg leading-tight">BenzosData</h1>
-          <p className="text-xs text-muted-foreground leading-tight">Ghana</p>
-        </div>
+        <BrandLogo logoClassName="h-10 w-10" textClassName="text-lg" name="BenzosData" subtitle="Ghana" />
       </Link>
 
       <Card className="w-full max-w-md p-8 shadow-sm">

@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Loader2 } from "lucide-react";
+import { BrandLogo } from "@/components/BrandLogo";
 
 type MaintenanceValue = {
   enabled?: boolean;
@@ -85,6 +86,9 @@ export const MaintenanceGate = ({ children }: { children: React.ReactNode }) => 
   return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-background">
       <Card className="max-w-xl w-full p-8 text-center space-y-4">
+        <div className="flex justify-center">
+          <BrandLogo logoClassName="h-12 w-12" textClassName="text-xl" subtitleClassName="text-sm" name="BenzosData" subtitle="Ghana" />
+        </div>
         <h1 className="text-2xl font-bold">Site Under Maintenance</h1>
         <p className="text-muted-foreground text-sm">
           {maintenance.message || "BenzosData Ghana is under maintenance and will be back shortly."}

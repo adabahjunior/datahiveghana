@@ -4,14 +4,14 @@
   position: relative;
   isolation: isolate;
   background:
-    radial-gradient(circle at 10% 10%, hsl(46 100% 82% / 0.45), transparent 35%),
+    radial-gradient(circle at 10% 10%, hsl(30 92% 80% / 0.4), transparent 35%),
     radial-gradient(circle at 85% 20%, hsl(197 100% 65% / 0.2), transparent 35%),
     linear-gradient(170deg, hsl(var(--background)), hsl(var(--background)) 55%, hsl(210 30% 98%));
 }
 
 .dark .store-canvas {
   background:
-    radial-gradient(circle at 10% 10%, hsl(46 100% 62% / 0.18), transparent 40%),
+    radial-gradient(circle at 10% 10%, hsl(30 86% 64% / 0.18), transparent 40%),
     radial-gradient(circle at 85% 20%, hsl(197 100% 65% / 0.16), transparent 38%),
     linear-gradient(165deg, hsl(var(--background)), hsl(220 20% 7%));
 }

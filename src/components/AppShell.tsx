@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/sheet";
 import { formatGHS } from "@/lib/format";
 import { LoginNotificationPopup } from "@/components/LoginNotificationPopup";
+import { BrandLogo } from "@/components/BrandLogo";
 
 const buyDataItems = [
   { to: "/buy/mtn", label: "MTN Data" },
@@ -55,15 +56,7 @@ const SidebarContent = ({ onNavigate }: { onNavigate?: () => void }) => {
     <div className="flex h-full flex-col bg-sidebar" onClick={onNavigate}>
       {/* Brand */}
       <div className="px-6 py-6 border-b border-sidebar-border">
-        <div className="flex items-center gap-2">
-          <div className="h-9 w-9 rounded-lg bg-primary flex items-center justify-center">
-            <span className="text-primary-foreground font-bold text-lg">D</span>
-          </div>
-          <div>
-            <h1 className="font-bold text-base leading-tight">BenzosData</h1>
-            <p className="text-[11px] text-muted-foreground leading-tight">Ghana</p>
-          </div>
-        </div>
+        <BrandLogo textClassName="text-base" subtitleClassName="text-[11px]" name="BenzosData" subtitle="Ghana" />
       </div>
 
       {/* Wallet snapshot */}
@@ -180,12 +173,7 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
             <SidebarContent onNavigate={() => setMobileOpen(false)} />
           </SheetContent>
         </Sheet>
-        <div className="flex items-center gap-2">
-          <div className="h-7 w-7 rounded-md bg-primary flex items-center justify-center">
-            <span className="text-primary-foreground font-bold text-sm">D</span>
-          </div>
-          <span className="font-bold text-sm">BenzosData</span>
-        </div>
+        <BrandLogo logoClassName="h-7 w-7" textClassName="text-sm" subtitleClassName="hidden" showSubtitle={false} name="BenzosData" />
         <div className="w-9" />
       </header>
 
