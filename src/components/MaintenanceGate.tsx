@@ -11,7 +11,7 @@ type MaintenanceValue = {
 
 const DEFAULT_MAINTENANCE: MaintenanceValue = {
   enabled: false,
-  message: "DataHive Ghana is under maintenance and will be back shortly.",
+  message: "BenzosData Ghana is under maintenance and will be back shortly.",
 };
 
 const normalizeMaintenance = (value: unknown): MaintenanceValue => {
@@ -87,9 +87,10 @@ export const MaintenanceGate = ({ children }: { children: React.ReactNode }) => 
       <Card className="max-w-xl w-full p-8 text-center space-y-4">
         <h1 className="text-2xl font-bold">Site Under Maintenance</h1>
         <p className="text-muted-foreground text-sm">
-          {maintenance.message || "DataHive Ghana is under maintenance and will be back shortly."}
+          {maintenance.message || "BenzosData Ghana is under maintenance and will be back shortly."}
         </p>
       </Card>
     </div>
   );
 };
+

@@ -17,7 +17,7 @@ export default function Landing() {
             <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
               <span className="text-primary-foreground font-bold">D</span>
             </div>
-            <span className="font-bold">DataHive Ghana</span>
+            <span className="font-bold">BenzosData Ghana</span>
           </Link>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon" onClick={toggleTheme}>
@@ -79,7 +79,7 @@ export default function Landing() {
         <div className="max-w-4xl mx-auto px-6 lg:px-10 py-20 text-center space-y-6">
           <h2 className="text-3xl lg:text-4xl font-bold">Ready to start earning?</h2>
           <p className="text-muted-foreground max-w-xl mx-auto">
-            Join hundreds of agents already running their data resale business with DataHive Ghana.
+            Join hundreds of agents already running their data resale business with BenzosData Ghana.
           </p>
           <Button size="lg" asChild>
             <Link to="/auth">Create Free Account</Link>
@@ -89,10 +89,11 @@ export default function Landing() {
 
       <footer className="border-t border-border">
         <div className="max-w-6xl mx-auto px-6 lg:px-10 py-8 text-sm text-muted-foreground flex flex-col sm:flex-row justify-between gap-4">
-          <p>© {new Date().getFullYear()} DataHive Ghana. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} BenzosData Ghana. All rights reserved.</p>
           <p>Built for resellers. Made in Ghana.</p>
         </div>
       </footer>
     </div>
   );
 }
+

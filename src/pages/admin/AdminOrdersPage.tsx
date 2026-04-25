@@ -56,7 +56,7 @@ export default function AdminOrdersPage() {
     <div className="space-y-5">
       <div>
         <h2 className="text-3xl font-bold">Orders</h2>
-        <p className="text-muted-foreground mt-1">All orders across DataHive Ghana and agent stores.</p>
+        <p className="text-muted-foreground mt-1">All orders across BenzosData Ghana and agent stores.</p>
       </div>
 
       <Card className="p-4">
@@ -110,3 +110,4 @@ export default function AdminOrdersPage() {
     </div>
   );
 }
+

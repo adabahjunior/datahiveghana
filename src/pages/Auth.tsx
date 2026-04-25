@@ -78,7 +78,7 @@ export default function Auth() {
           <span className="text-primary-foreground font-bold text-xl">D</span>
         </div>
         <div>
-          <h1 className="font-bold text-lg leading-tight">DataHive</h1>
+          <h1 className="font-bold text-lg leading-tight">BenzosData</h1>
           <p className="text-xs text-muted-foreground leading-tight">Ghana</p>
         </div>
       </Link>
@@ -176,3 +176,4 @@ export default function Auth() {
     </div>
   );
 }
+

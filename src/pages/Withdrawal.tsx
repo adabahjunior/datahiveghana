@@ -20,9 +20,25 @@ export default function Withdrawal() {
   const [form, setForm] = useState({ amount: "", momo_number: "", momo_name: "", network: "mtn" });
   const [submitting, setSubmitting] = useState(false);
   const [history, setHistory] = useState<any[]>([]);
+  const [currentProfit, setCurrentProfit] = useState(0);
+
+  const loadCurrentProfit = async () => {
+    if (!profile?.user_id) return;
+
+    const { data } = await supabase
+      .from("profiles")
+      .select("profit_balance")
+      .eq("user_id", profile.user_id)
+      .maybeSingle();
+
+    setCurrentProfit(Number(data?.profit_balance || 0));
+  };
 
   const load = async () => {
     if (!profile) return;
+
+    await loadCurrentProfit();
+
     const { data } = await supabase.from("withdrawals").select("*").eq("agent_id", profile.user_id)
       .order("created_at", { ascending: false }).limit(50);
     setHistory(data || []);
@@ -34,7 +50,7 @@ export default function Withdrawal() {
     e.preventDefault();
     const amt = parseFloat(form.amount);
     if (isNaN(amt) || amt < MIN) { toast.error(`Minimum withdrawal is ${formatGHS(MIN)}`); return; }
-    if (amt > (profile?.profit_balance || 0)) { toast.error("Amount exceeds profit balance"); return; }
+    if (amt > currentProfit) { toast.error("Amount exceeds profit balance"); return; }
     setSubmitting(true);
     const { data, error } = await supabase.functions.invoke("request-withdrawal", { body: { ...form, amount: amt } });
     setSubmitting(false);
@@ -54,8 +70,8 @@ export default function Withdrawal() {
 
       <div className="grid lg:grid-cols-3 gap-6 mb-8">
         <Card className="p-6 bg-success text-success-foreground border-0">
-          <p className="text-xs uppercase tracking-wider opacity-80">Available Profit</p>
-          <p className="text-3xl font-bold mt-2">{formatGHS(profile?.profit_balance || 0)}</p>
+          <p className="text-xs uppercase tracking-wider opacity-80">Current Profit</p>
+          <p className="text-3xl font-bold mt-2">{formatGHS(currentProfit)}</p>
         </Card>
 
         <Card className="lg:col-span-2 p-6">

@@ -61,7 +61,7 @@ export default function AdminOverviewPage() {
     <div className="space-y-6">
       <div>
         <h2 className="text-3xl font-bold">Overview</h2>
-        <p className="text-muted-foreground mt-1">Complete control center summary for DataHive Ghana.</p>
+        <p className="text-muted-foreground mt-1">Complete control center summary for BenzosData Ghana.</p>
       </div>
 
       <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -86,3 +86,4 @@ const Stat = ({ title, value }: { title: string; value: string }) => (
     <p className="text-2xl font-bold mt-1">{value}</p>
   </Card>
 );
+

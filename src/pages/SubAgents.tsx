@@ -22,7 +22,9 @@ export default function SubAgents() {
   const [addon, setAddon] = useState("0");
   const [savingAddon, setSavingAddon] = useState(false);
   const [packages, setPackages] = useState<any[]>([]);
+  const [checkerProducts, setCheckerProducts] = useState<any[]>([]);
   const [basePrices, setBasePrices] = useState<Record<string, number>>({});
+  const [checkerBasePrices, setCheckerBasePrices] = useState<Record<string, number>>({});
   const [savingPrice, setSavingPrice] = useState<Record<string, boolean>>({});
   const [subagents, setSubagents] = useState<any[]>([]);
   const [managingSubagent, setManagingSubagent] = useState<Record<string, boolean>>({});
@@ -38,6 +40,16 @@ export default function SubAgents() {
     return groups;
   }, [packages]);
 
+  const groupedCheckers = useMemo(() => {
+    const groups: Record<string, any[]> = { wassce: [], bece: [] };
+    checkerProducts.forEach((item) => {
+      const key = String(item.exam_type || "").toLowerCase();
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(item);
+    });
+    return groups;
+  }, [checkerProducts]);
+
   const load = async () => {
     if (!profile) return;
     setLoading(true);
@@ -52,9 +64,17 @@ export default function SubAgents() {
     setAddon(String(Number(myStore?.subagent_fee_addon || 0)));
 
     if (myStore) {
-      const [{ data: catalog }, { data: existingBase }, { data: assigned }] = await Promise.all([
+      const [
+        { data: catalog },
+        { data: existingBase },
+        { data: checkerCatalog },
+        { data: existingCheckerBase },
+        { data: assigned },
+      ] = await Promise.all([
         supabase.from("data_packages").select("*").eq("is_active", true).order("network").order("display_order"),
         supabase.from("subagent_package_prices").select("*").eq("parent_agent_id", profile.user_id),
+        (supabase as any).from("checker_products").select("*").eq("is_active", true).order("display_order"),
+        (supabase as any).from("subagent_checker_prices").select("*").eq("parent_agent_id", profile.user_id),
         supabase
           .from("subagent_assignments")
           .select("id,subagent_user_id,status,paid_amount,created_at")
@@ -63,9 +83,16 @@ export default function SubAgents() {
       ]);
 
       const map: Record<string, number> = {};
+      const checkerMap: Record<string, number> = {};
+
       (catalog || []).forEach((pkg: any) => {
         const existing = (existingBase || []).find((x: any) => x.package_id === pkg.id);
         map[pkg.id] = existing ? Number(existing.base_price) : Number(pkg.agent_price);
+      });
+
+      (checkerCatalog || []).forEach((checker: any) => {
+        const existing = (existingCheckerBase || []).find((x: any) => x.checker_id === checker.id);
+        checkerMap[checker.id] = existing ? Number(existing.base_price) : Number(checker.agent_price);
       });
 
       let usersMap: Record<string, any> = {};
@@ -85,7 +112,9 @@ export default function SubAgents() {
       const joined = (assigned || []).map((a: any) => ({ ...a, profile: usersMap[a.subagent_user_id] || null }));
 
       setPackages(catalog || []);
+      setCheckerProducts(checkerCatalog || []);
       setBasePrices(map);
+      setCheckerBasePrices(checkerMap);
       setSubagents(joined);
     }
 
@@ -147,6 +176,34 @@ export default function SubAgents() {
     }
 
     toast.success("Subagent base price saved");
+  };
+
+  const saveCheckerBasePrice = async (checker: any) => {
+    if (!profile) return;
+    const price = Number(checkerBasePrices[checker.id]);
+    if (!Number.isFinite(price) || price <= 0) {
+      toast.error("Invalid checker base price");
+      return;
+    }
+
+    setSavingPrice((prev) => ({ ...prev, [`checker-${checker.id}`]: true }));
+    const { error } = await (supabase as any).from("subagent_checker_prices").upsert(
+      {
+        parent_agent_id: profile.user_id,
+        checker_id: checker.id,
+        base_price: price,
+        is_active: true,
+      },
+      { onConflict: "parent_agent_id,checker_id" },
+    );
+    setSavingPrice((prev) => ({ ...prev, [`checker-${checker.id}`]: false }));
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    toast.success("Subagent checker base price saved");
   };
 
   const toggleSubagentStatus = async (row: any) => {
@@ -273,6 +330,61 @@ export default function SubAgents() {
                       <TableCell>
                         <Button size="sm" variant="outline" onClick={() => saveBasePrice(pkg)} disabled={!!savingPrice[pkg.id]}>
                           {savingPrice[pkg.id] && <Loader2 className="h-4 w-4 animate-spin" />} Save
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      <Card className="overflow-hidden mb-8 store-panel store-reveal store-delay-2">
+        <div className="p-6 border-b border-border">
+          <h3 className="font-bold">Subagent Checker Base Prices</h3>
+          <p className="text-sm text-muted-foreground mt-1">Set the base checker prices your subagents buy from dashboard and use for store markups.</p>
+        </div>
+
+        <div className="p-4 md:p-6 space-y-6">
+          {Object.keys(groupedCheckers).map((examType) => (
+            <div key={examType} className="border border-border rounded-xl overflow-hidden">
+              <div className="px-4 py-3 bg-muted/40 border-b border-border">
+                <h4 className="font-semibold text-sm uppercase">{examType}</h4>
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Checker</TableHead>
+                    <TableHead>Agent Base</TableHead>
+                    <TableHead>Subagent Base</TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {groupedCheckers[examType].map((checker) => (
+                    <TableRow key={checker.id}>
+                      <TableCell className="text-sm font-medium">{checker.name}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{formatGHS(checker.agent_price)}</TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          className="w-28 h-9"
+                          value={checkerBasePrices[checker.id] ?? Number(checker.agent_price)}
+                          onChange={(e) => setCheckerBasePrices((prev) => ({ ...prev, [checker.id]: Number(e.target.value) || 0 }))}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => saveCheckerBasePrice(checker)}
+                          disabled={!!savingPrice[`checker-${checker.id}`]}
+                        >
+                          {savingPrice[`checker-${checker.id}`] && <Loader2 className="h-4 w-4 animate-spin" />} Save
                         </Button>
                       </TableCell>
                     </TableRow>

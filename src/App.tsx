@@ -78,7 +78,7 @@ const App = () => (
               <Route path="/flyer-generator" element={<Shell><ProtectedRoute requireAgent><FlyerGenerator /></ProtectedRoute></Shell>} />
               <Route path="/withdrawal" element={<Shell><ProtectedRoute requireAgent><Withdrawal /></ProtectedRoute></Shell>} />
               <Route path="/sub-agents" element={<Shell><ProtectedRoute requireAgent><SubAgents /></ProtectedRoute></Shell>} />
-              <Route path="/result-checkers" element={<Shell><ProtectedRoute requireAgent><ResultCheckers /></ProtectedRoute></Shell>} />
+              <Route path="/result-checkers" element={<Shell><ResultCheckers /></Shell>} />
               <Route path="/report" element={<Shell><Report /></Shell>} />
               <Route path="/settings" element={<Shell><Settings /></Shell>} />
               <Route path="/admin" element={<AdminShell />}>

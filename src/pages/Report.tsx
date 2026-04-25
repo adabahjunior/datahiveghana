@@ -43,7 +43,7 @@ export default function Report() {
     }
 
     const waText = [
-      "*DataHive Issue Report*",
+      "*BenzosData Issue Report*",
       `Subject: ${subject}`,
       `Message: ${message}`,
       `User: ${profile.full_name || "N/A"}`,
@@ -98,3 +98,4 @@ export default function Report() {
     </div>
   );
 }
+

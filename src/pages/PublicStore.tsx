@@ -26,9 +26,12 @@ export default function PublicStore() {
   const { theme, toggleTheme } = useTheme();
   const [store, setStore] = useState<any>(null);
   const [items, setItems] = useState<any[]>([]);
+  const [checkerItems, setCheckerItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<any>(null);
+  const [selectedChecker, setSelectedChecker] = useState<any>(null);
   const [phone, setPhone] = useState("");
+  const [checkerPhone, setCheckerPhone] = useState("");
   const [paying, setPaying] = useState(false);
   const [filter, setFilter] = useState<string>("all");
   const paystackPublicKey = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY;
@@ -40,10 +43,17 @@ export default function PublicStore() {
       const { data: s } = await supabase.from("agent_stores").select("*").eq("slug", slug).maybeSingle();
       setStore(s);
       if (s) {
-        const { data } = await supabase.from("store_package_prices")
-          .select("selling_price, is_listed, package:data_packages(*)")
-          .eq("store_id", s.id).eq("is_listed", true);
+        const [{ data }, { data: checkerData }] = await Promise.all([
+          supabase.from("store_package_prices")
+            .select("selling_price, is_listed, package:data_packages(*)")
+            .eq("store_id", s.id).eq("is_listed", true),
+          (supabase as any)
+            .from("store_checker_prices")
+            .select("selling_price, is_listed, checker:checker_products(*)")
+            .eq("store_id", s.id).eq("is_listed", true),
+        ]);
         setItems((data || []).filter((i: any) => i.package?.is_active));
+        setCheckerItems((checkerData || []).filter((i: any) => i.checker?.is_active));
       }
       setLoading(false);
     })();
@@ -90,6 +100,53 @@ export default function PublicStore() {
       toast.success("Purchase successful. Your data is on its way.");
       setSelected(null);
       setPhone("");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Payment failed";
+      if (message !== "Payment cancelled") toast.error(message);
+    } finally {
+      setPaying(false);
+    }
+  };
+
+  const handleBuyChecker = async () => {
+    if (!selectedChecker || !checkerPhone || checkerPhone.length < 10) { toast.error("Enter a valid phone number"); return; }
+    if (!paystackPublicKey) { toast.error("Paystack is not configured"); return; }
+
+    setPaying(true);
+    try {
+      const sellingPrice = Number(selectedChecker.selling_price);
+      const total = sellingPrice + calcPaystackCharge(sellingPrice);
+      const buyerEmail = `${checkerPhone.replace(/\D/g, "") || "guest"}@guest.datahiveghana.com`;
+
+      const reference = await startPaystackCheckout({
+        publicKey: paystackPublicKey,
+        email: buyerEmail,
+        amountInGhs: total,
+        metadata: {
+          purpose: "guest_checker_purchase",
+          store_id: store.id,
+          checker_id: selectedChecker.checker.id,
+          recipient_phone: checkerPhone,
+        },
+      });
+
+      const { data, error } = await supabase.functions.invoke("guest-checker-purchase", {
+        body: {
+          store_id: store.id,
+          checker_id: selectedChecker.checker.id,
+          recipient_phone: checkerPhone,
+          reference,
+        },
+      });
+
+      if (error || !data?.success) {
+        toast.error(data?.error || error?.message || "Checker purchase failed");
+        return;
+      }
+
+      toast.success(`Checker purchase successful. Serial: ${data.checker?.serial} | PIN: ${data.checker?.pin}`);
+      setSelectedChecker(null);
+      setCheckerPhone("");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Payment failed";
       if (message !== "Payment cancelled") toast.error(message);
@@ -176,6 +233,30 @@ export default function PublicStore() {
         {filtered.length === 0 && (
           <p className="py-16 text-center text-sm text-muted-foreground">No bundles listed yet.</p>
         )}
+
+        <div className="mt-14 mb-6 store-reveal">
+          <p className="inline-flex rounded-full px-3 py-1 text-xs tracking-wider uppercase store-chip">Checker Products</p>
+          <h3 className="text-2xl font-bold mt-3">WASSCE and BECE Checkers</h3>
+          <p className="text-muted-foreground mt-1">Buy official result checker vouchers instantly.</p>
+        </div>
+
+        {checkerItems.length === 0 ? (
+          <p className="py-8 text-sm text-muted-foreground">No checker products listed yet.</p>
+        ) : (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {checkerItems.map((item) => (
+              <Card key={item.checker.id} className="p-6 store-panel hover:border-primary/50 transition-colors store-reveal store-delay-3">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs uppercase tracking-wider text-muted-foreground">{String(item.checker.exam_type).toUpperCase()}</span>
+                  <span className="text-xs text-muted-foreground">Checker</span>
+                </div>
+                <p className="text-xl font-bold">{item.checker.name}</p>
+                <p className="text-2xl font-bold mt-5 mb-4 pt-5 border-t border-border">{formatGHS(item.selling_price)}</p>
+                <Button className="w-full" onClick={() => setSelectedChecker(item)}>Buy Checker</Button>
+              </Card>
+            ))}
+          </div>
+        )}
       </section>
 
       <footer className="border-t border-border">
@@ -215,6 +296,36 @@ export default function PublicStore() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setSelected(null)}>Cancel</Button>
             <Button onClick={handleBuy} disabled={paying}>
+              {paying && <Loader2 className="h-4 w-4 animate-spin" />} Pay with Paystack
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!selectedChecker} onOpenChange={(o) => !o && setSelectedChecker(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Checker Purchase</DialogTitle>
+            <DialogDescription>Enter the recipient's phone number. You will checkout directly with Paystack.</DialogDescription>
+          </DialogHeader>
+          {selectedChecker && (
+            <div className="space-y-4">
+              <div className="rounded-lg bg-muted p-4 space-y-1.5 text-sm">
+                <div className="flex justify-between"><span className="text-muted-foreground">Product</span><span className="font-medium">{selectedChecker.checker.name}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Exam</span><span className="font-medium uppercase">{selectedChecker.checker.exam_type}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Price</span><span>{formatGHS(selectedChecker.selling_price)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Paystack charge</span><span>{formatGHS(calcPaystackCharge(Number(selectedChecker.selling_price)))}</span></div>
+                <div className="flex justify-between font-bold pt-2 border-t border-border"><span>Total</span><span>{formatGHS(Number(selectedChecker.selling_price) + calcPaystackCharge(Number(selectedChecker.selling_price)))}</span></div>
+              </div>
+              <div className="space-y-2">
+                <Label>Phone Number</Label>
+                <Input placeholder="0244000000" value={checkerPhone} onChange={(e) => setCheckerPhone(e.target.value)} />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSelectedChecker(null)}>Cancel</Button>
+            <Button onClick={handleBuyChecker} disabled={paying}>
               {paying && <Loader2 className="h-4 w-4 animate-spin" />} Pay with Paystack
             </Button>
           </DialogFooter>

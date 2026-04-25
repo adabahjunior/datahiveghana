@@ -26,8 +26,11 @@ export default function MyStore() {
   const [form, setForm] = useState({ store_name: "", support_phone: "", whatsapp_link: "" });
   const [storeDetailsForm, setStoreDetailsForm] = useState({ support_phone: "", whatsapp_link: "" });
   const [packages, setPackages] = useState<any[]>([]);
+  const [checkerProducts, setCheckerProducts] = useState<any[]>([]);
   const [subagentBasePrices, setSubagentBasePrices] = useState<Record<string, number>>({});
+  const [subagentCheckerBasePrices, setSubagentCheckerBasePrices] = useState<Record<string, number>>({});
   const [storePrices, setStorePrices] = useState<Record<string, { price: number; listed: boolean }>>({});
+  const [storeCheckerPrices, setStoreCheckerPrices] = useState<Record<string, { price: number; listed: boolean }>>({});
 
   useEffect(() => {
     if (!profile) return;
@@ -46,6 +49,7 @@ export default function MyStore() {
 
   const loadCatalog = async (storeId: string) => {
     const basePriceMap: Record<string, number> = {};
+    const checkerBasePriceMap: Record<string, number> = {};
 
     if (profile && isSubAgent) {
       const { data: assignment } = await supabase
@@ -56,26 +60,41 @@ export default function MyStore() {
         .maybeSingle();
 
       if (assignment?.parent_agent_id) {
-        const { data: prices } = await supabase
-          .from("subagent_package_prices")
-          .select("package_id,base_price,is_active")
-          .eq("parent_agent_id", assignment.parent_agent_id)
-          .eq("is_active", true);
+        const [{ data: prices }, { data: checkerPrices }] = await Promise.all([
+          supabase
+            .from("subagent_package_prices")
+            .select("package_id,base_price,is_active")
+            .eq("parent_agent_id", assignment.parent_agent_id)
+            .eq("is_active", true),
+          (supabase as any)
+            .from("subagent_checker_prices")
+            .select("checker_id,base_price,is_active")
+            .eq("parent_agent_id", assignment.parent_agent_id)
+            .eq("is_active", true),
+        ]);
 
         (prices || []).forEach((row: any) => {
           basePriceMap[row.package_id] = Number(row.base_price);
+        });
+
+        (checkerPrices || []).forEach((row: any) => {
+          checkerBasePriceMap[row.checker_id] = Number(row.base_price);
         });
       }
     }
 
     setSubagentBasePrices(basePriceMap);
+    setSubagentCheckerBasePrices(checkerBasePriceMap);
 
-    const [{ data: pkgs }, { data: sp }] = await Promise.all([
+    const [{ data: pkgs }, { data: sp }, { data: checkerCatalog }, { data: storeCheckerPriceRows }] = await Promise.all([
       supabase.from("data_packages").select("*").eq("is_active", true).order("network").order("display_order"),
       supabase.from("store_package_prices").select("*").eq("store_id", storeId),
+      (supabase as any).from("checker_products").select("*").eq("is_active", true).order("display_order"),
+      (supabase as any).from("store_checker_prices").select("*").eq("store_id", storeId),
     ]);
 
     setPackages(pkgs || []);
+    setCheckerProducts(checkerCatalog || []);
     const map: Record<string, { price: number; listed: boolean }> = {};
     (pkgs || []).forEach((p: any) => {
       const fallbackBase = isSubAgent
@@ -88,6 +107,19 @@ export default function MyStore() {
       };
     });
     setStorePrices(map);
+
+    const checkerMap: Record<string, { price: number; listed: boolean }> = {};
+    (checkerCatalog || []).forEach((c: any) => {
+      const fallbackBase = isSubAgent
+        ? Number(checkerBasePriceMap[c.id] ?? c.agent_price)
+        : Number(c.agent_price);
+      const existing = (storeCheckerPriceRows || []).find((x: any) => x.checker_id === c.id);
+      checkerMap[c.id] = {
+        price: existing ? Number(existing.selling_price) : fallbackBase,
+        listed: existing ? existing.is_listed : true,
+      };
+    });
+    setStoreCheckerPrices(checkerMap);
   };
 
   const handleActivate = async () => {
@@ -139,6 +171,29 @@ export default function MyStore() {
     }, { onConflict: "store_id,package_id" });
     if (error) toast.error(error.message);
     else toast.success("Saved");
+  };
+
+  const saveCheckerPrice = async (checker: any) => {
+    if (!store) return;
+    const sp = storeCheckerPrices[checker.id];
+    const minimumBase = isSubAgent
+      ? Number(subagentCheckerBasePrices[checker.id] ?? checker.agent_price)
+      : Number(checker.agent_price);
+
+    if (sp.price < minimumBase) {
+      toast.error(`Checker selling price must be at least ${formatGHS(minimumBase)}`);
+      return;
+    }
+
+    const { error } = await (supabase as any).from("store_checker_prices").upsert({
+      store_id: store.id,
+      checker_id: checker.id,
+      selling_price: sp.price,
+      is_listed: sp.listed,
+    }, { onConflict: "store_id,checker_id" });
+
+    if (error) toast.error(error.message);
+    else toast.success("Checker pricing saved");
   };
 
   const handleSaveStoreDetails = async (e: React.FormEvent) => {
@@ -274,6 +329,12 @@ export default function MyStore() {
     acc[pkg.network].push(pkg);
     return acc;
   }, {});
+  const groupedCheckers = checkerProducts.reduce((acc: Record<string, any[]>, checker: any) => {
+    const exam = String(checker.exam_type || "").toLowerCase();
+    if (!acc[exam]) acc[exam] = [];
+    acc[exam].push(checker);
+    return acc;
+  }, {});
   const networkOrder = ["mtn", "telecel", "airteltigo-ishare", "airteltigo-bigtime"];
   const sortedNetworks = Object.keys(groupedPackages).sort((a, b) => {
     const ai = networkOrder.indexOf(a);
@@ -340,7 +401,7 @@ export default function MyStore() {
 
       <div className="grid sm:grid-cols-3 gap-5 mb-8">
         <Card className="p-5 store-kpi store-reveal"><p className="text-xs text-muted-foreground uppercase">Profit Balance</p><p className="text-2xl font-bold mt-1">{formatGHS(profile.profit_balance)}</p></Card>
-        <Card className="p-5 store-kpi store-reveal store-delay-1"><p className="text-xs text-muted-foreground uppercase">Listed Packages</p><p className="text-2xl font-bold mt-1">{Object.values(storePrices).filter((s) => s.listed).length}</p></Card>
+        <Card className="p-5 store-kpi store-reveal store-delay-1"><p className="text-xs text-muted-foreground uppercase">Listed Products</p><p className="text-2xl font-bold mt-1">{Object.values(storePrices).filter((s) => s.listed).length + Object.values(storeCheckerPrices).filter((s) => s.listed).length}</p></Card>
         <Card className="p-5 store-kpi store-reveal store-delay-2"><p className="text-xs text-muted-foreground uppercase">Networks</p><p className="text-2xl font-bold mt-1">{sortedNetworks.length}</p></Card>
       </div>
 
@@ -402,6 +463,75 @@ export default function MyStore() {
                           <Switch checked={sp.listed} onCheckedChange={(v) => setStorePrices({ ...storePrices, [p.id]: { ...sp, listed: v } })} />
                         </TableCell>
                         <TableCell><Button size="sm" variant="outline" onClick={() => savePrice(p)}>Save</Button></TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      <Card className="overflow-hidden store-panel store-reveal store-delay-3 mt-8">
+        <div className="p-6 border-b border-border">
+          <h3 className="font-bold">Result Checker Pricing</h3>
+          <p className="text-sm text-muted-foreground mt-1">
+            {isSubAgent
+              ? "Set your checker selling price (must be >= your assigned subagent checker base price)."
+              : "Set your checker selling price (must be >= admin agent checker base price)."}
+          </p>
+        </div>
+
+        <div className="p-4 md:p-6 space-y-6">
+          {Object.keys(groupedCheckers).map((examType) => (
+            <div key={examType} className="border border-border rounded-xl overflow-hidden">
+              <div className="px-4 py-3 bg-muted/40 border-b border-border">
+                <h4 className="font-semibold text-sm uppercase">{examType}</h4>
+              </div>
+
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Checker</TableHead>
+                    <TableHead>{isSubAgent ? "Your Base Price" : "Agent Base Price"}</TableHead>
+                    <TableHead>Your Price</TableHead>
+                    <TableHead>Profit</TableHead>
+                    <TableHead>Listed</TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {groupedCheckers[examType].map((c) => {
+                    const sp = storeCheckerPrices[c.id] || { price: Number(c.agent_price), listed: true };
+                    const checkerBase = isSubAgent
+                      ? Number(subagentCheckerBasePrices[c.id] ?? c.agent_price)
+                      : Number(c.agent_price);
+                    const profit = Number(sp.price) - checkerBase;
+
+                    return (
+                      <TableRow key={c.id}>
+                        <TableCell className="text-sm font-medium">{c.name}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{formatGHS(checkerBase)}</TableCell>
+                        <TableCell>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min={checkerBase}
+                            value={sp.price}
+                            onChange={(e) => setStoreCheckerPrices({ ...storeCheckerPrices, [c.id]: { ...sp, price: parseFloat(e.target.value) || 0 } })}
+                            className="w-24 h-9"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <span className={profit >= 0 ? "text-success font-medium text-sm" : "text-destructive font-medium text-sm"}>
+                            {profit >= 0 ? "+" : ""}{formatGHS(profit)}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <Switch checked={sp.listed} onCheckedChange={(v) => setStoreCheckerPrices({ ...storeCheckerPrices, [c.id]: { ...sp, listed: v } })} />
+                        </TableCell>
+                        <TableCell><Button size="sm" variant="outline" onClick={() => saveCheckerPrice(c)}>Save</Button></TableCell>
                       </TableRow>
                     );
                   })}

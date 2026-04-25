@@ -22,7 +22,7 @@ export default function AdminLayout() {
     <div className="min-h-screen bg-background flex">
       <aside className="w-72 border-r border-border p-4 hidden lg:block">
         <div className="px-3 py-4 border-b border-border mb-4">
-          <p className="text-xs uppercase tracking-widest text-muted-foreground">DataHive Ghana</p>
+          <p className="text-xs uppercase tracking-widest text-muted-foreground">BenzosData Ghana</p>
           <h1 className="text-xl font-bold mt-1">Admin Control</h1>
         </div>
         <nav className="space-y-1">
@@ -53,7 +53,7 @@ export default function AdminLayout() {
 
       <main className="flex-1 p-4 md:p-8 lg:p-10">
         <div className="lg:hidden mb-6">
-          <p className="text-xs uppercase tracking-widest text-muted-foreground">DataHive Ghana</p>
+          <p className="text-xs uppercase tracking-widest text-muted-foreground">BenzosData Ghana</p>
           <h1 className="text-2xl font-bold">Admin Control</h1>
           <div className="mt-4 grid grid-cols-2 gap-2">
             {navItems.map((item) => (
@@ -75,3 +75,4 @@ export default function AdminLayout() {
     </div>
   );
 }
+

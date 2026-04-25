@@ -60,7 +60,7 @@ const SidebarContent = ({ onNavigate }: { onNavigate?: () => void }) => {
             <span className="text-primary-foreground font-bold text-lg">D</span>
           </div>
           <div>
-            <h1 className="font-bold text-base leading-tight">DataHive</h1>
+            <h1 className="font-bold text-base leading-tight">BenzosData</h1>
             <p className="text-[11px] text-muted-foreground leading-tight">Ghana</p>
           </div>
         </div>
@@ -122,7 +122,7 @@ const SidebarContent = ({ onNavigate }: { onNavigate?: () => void }) => {
         {isSeller && <NavItem to="/flyer-generator" icon={WandSparkles} label="Flyer Generator" />}
         {isSeller && <NavItem to="/withdrawal" icon={Banknote} label="Withdrawal" />}
         {isAgent && !isSubAgent && <NavItem to="/sub-agents" icon={Users} label="Sub Agents" />}
-        {isSeller && <NavItem to="/result-checkers" icon={Search} label="Result Checkers (Coming Soon)" />}
+        <NavItem to="/result-checkers" icon={Search} label="Result Checkers" />
 
         <NavItem to="/report" icon={MessageSquareWarning} label="Report Issue" />
         <NavItem to="/settings" icon={Settings} label="Settings" />
@@ -184,7 +184,7 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
           <div className="h-7 w-7 rounded-md bg-primary flex items-center justify-center">
             <span className="text-primary-foreground font-bold text-sm">D</span>
           </div>
-          <span className="font-bold text-sm">DataHive</span>
+          <span className="font-bold text-sm">BenzosData</span>
         </div>
         <div className="w-9" />
       </header>
@@ -196,3 +196,4 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
     </div>
   );
 };
+

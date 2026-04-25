@@ -16,7 +16,7 @@ type MaintenanceMode = {
 export default function AdminSiteSettingsPage() {
   const [maintenance, setMaintenance] = useState<MaintenanceMode>({
     enabled: false,
-    message: "DataHive Ghana is under maintenance and will be back shortly.",
+    message: "BenzosData Ghana is under maintenance and will be back shortly.",
   });
   const [whatsappUrl, setWhatsappUrl] = useState("");
   const [customerCare, setCustomerCare] = useState("");
@@ -100,3 +100,4 @@ export default function AdminSiteSettingsPage() {
     </div>
   );
 }
+

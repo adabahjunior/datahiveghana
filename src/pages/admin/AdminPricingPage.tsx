@@ -21,10 +21,22 @@ const initialForm = {
   is_active: true,
 };
 
+const initialCheckerForm = {
+  id: "",
+  exam_type: "wassce",
+  name: "",
+  user_price: 0,
+  agent_price: 0,
+  is_active: true,
+};
+
 export default function AdminPricingPage() {
   const [packages, setPackages] = useState<any[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<any>(initialForm);
+  const [checkers, setCheckers] = useState<any[]>([]);
+  const [editingCheckerId, setEditingCheckerId] = useState<string | null>(null);
+  const [checkerForm, setCheckerForm] = useState<any>(initialCheckerForm);
 
   const groupedPackages = useMemo(() => {
     const groups: Record<string, any[]> = {
@@ -43,8 +55,12 @@ export default function AdminPricingPage() {
   }, [packages]);
 
   const load = async () => {
-    const { data } = await supabase.from("data_packages").select("*").order("network").order("display_order");
+    const [{ data }, { data: checkerProducts }] = await Promise.all([
+      supabase.from("data_packages").select("*").order("network").order("display_order"),
+      (supabase as any).from("checker_products").select("*").order("display_order"),
+    ]);
     setPackages(data || []);
+    setCheckers(checkerProducts || []);
   };
 
   useEffect(() => {
@@ -105,6 +121,61 @@ export default function AdminPricingPage() {
     load();
   };
 
+  const submitChecker = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (editingCheckerId) {
+      const { error } = await (supabase as any)
+        .from("checker_products")
+        .update({
+          exam_type: checkerForm.exam_type,
+          name: checkerForm.name,
+          user_price: Number(checkerForm.user_price),
+          agent_price: Number(checkerForm.agent_price),
+          is_active: !!checkerForm.is_active,
+        })
+        .eq("id", editingCheckerId);
+
+      if (error) return toast.error(error.message);
+      toast.success("Checker product updated");
+    } else {
+      const nextOrder = (checkers || []).length + 1;
+      const { error } = await (supabase as any).from("checker_products").insert({
+        exam_type: checkerForm.exam_type,
+        name: checkerForm.name,
+        user_price: Number(checkerForm.user_price),
+        agent_price: Number(checkerForm.agent_price),
+        is_active: !!checkerForm.is_active,
+        display_order: nextOrder,
+      });
+      if (error) return toast.error(error.message);
+      toast.success("Checker product added");
+    }
+
+    setEditingCheckerId(null);
+    setCheckerForm(initialCheckerForm);
+    load();
+  };
+
+  const editChecker = (checker: any) => {
+    setEditingCheckerId(checker.id);
+    setCheckerForm({
+      id: checker.id,
+      exam_type: checker.exam_type,
+      name: checker.name,
+      user_price: Number(checker.user_price),
+      agent_price: Number(checker.agent_price),
+      is_active: !!checker.is_active,
+    });
+  };
+
+  const removeChecker = async (id: string) => {
+    const { error } = await (supabase as any).from("checker_products").delete().eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success("Checker product deleted");
+    load();
+  };
+
   return (
     <div className="space-y-5">
       <div>
@@ -155,6 +226,82 @@ export default function AdminPricingPage() {
             {editingId && <Button type="button" variant="outline" onClick={() => { setEditingId(null); setForm(initialForm); }}>Cancel</Button>}
           </div>
         </form>
+      </Card>
+
+      <Card className="p-5">
+        <h3 className="font-bold mb-4">Result Checker Pricing</h3>
+        <form onSubmit={submitChecker} className="grid lg:grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <Label>Exam Type</Label>
+            <Select value={checkerForm.exam_type} onValueChange={(v) => setCheckerForm({ ...checkerForm, exam_type: v })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="wassce">WASSCE</SelectItem>
+                <SelectItem value="bece">BECE</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Product Name</Label>
+            <Input value={checkerForm.name} onChange={(e) => setCheckerForm({ ...checkerForm, name: e.target.value })} required />
+          </div>
+          <div className="space-y-2">
+            <Label>User/Admin Price</Label>
+            <Input type="number" step="0.01" value={checkerForm.user_price} onChange={(e) => setCheckerForm({ ...checkerForm, user_price: e.target.value })} required />
+          </div>
+          <div className="space-y-2">
+            <Label>Agent Base Price</Label>
+            <Input type="number" step="0.01" value={checkerForm.agent_price} onChange={(e) => setCheckerForm({ ...checkerForm, agent_price: e.target.value })} required />
+          </div>
+          <div className="flex items-center gap-3 mt-7">
+            <Switch checked={!!checkerForm.is_active} onCheckedChange={(checked) => setCheckerForm({ ...checkerForm, is_active: checked })} />
+            <span className="text-sm">Active</span>
+          </div>
+          <div className="flex items-end gap-2">
+            <Button type="submit">{editingCheckerId ? "Update" : "Add"} Checker</Button>
+            {editingCheckerId && (
+              <Button type="button" variant="outline" onClick={() => { setEditingCheckerId(null); setCheckerForm(initialCheckerForm); }}>
+                Cancel
+              </Button>
+            )}
+          </div>
+        </form>
+      </Card>
+
+      <Card className="overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Exam</TableHead>
+              <TableHead>Name</TableHead>
+              <TableHead>User/Admin Price</TableHead>
+              <TableHead>Agent Base Price</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {checkers.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-10">
+                  No checker products yet.
+                </TableCell>
+              </TableRow>
+            ) : checkers.map((checker) => (
+              <TableRow key={checker.id}>
+                <TableCell>{String(checker.exam_type).toUpperCase()}</TableCell>
+                <TableCell>{checker.name}</TableCell>
+                <TableCell>{checker.user_price}</TableCell>
+                <TableCell>{checker.agent_price}</TableCell>
+                <TableCell>{checker.is_active ? "Active" : "Inactive"}</TableCell>
+                <TableCell className="space-x-2">
+                  <Button size="sm" variant="outline" onClick={() => editChecker(checker)}>Edit</Button>
+                  <Button size="sm" variant="destructive" onClick={() => removeChecker(checker.id)}>Delete</Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </Card>
 
       {Object.entries(groupedPackages).map(([network, networkPackages]) => (
