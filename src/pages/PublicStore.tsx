@@ -32,6 +32,8 @@ export default function PublicStore() {
   const [selectedChecker, setSelectedChecker] = useState<any>(null);
   const [phone, setPhone] = useState("");
   const [checkerPhone, setCheckerPhone] = useState("");
+  const [checkerQty, setCheckerQty] = useState("1");
+  const [checkerSuccess, setCheckerSuccess] = useState<any>(null);
   const [paying, setPaying] = useState(false);
   const [filter, setFilter] = useState<string>("all");
   const paystackPublicKey = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY;
@@ -109,12 +111,14 @@ export default function PublicStore() {
   };
 
   const handleBuyChecker = async () => {
+    const qty = Number(checkerQty);
     if (!selectedChecker || !checkerPhone || checkerPhone.length < 10) { toast.error("Enter a valid phone number"); return; }
+    if (!Number.isInteger(qty) || qty <= 0 || qty > 50) { toast.error("Quantity must be between 1 and 50"); return; }
     if (!paystackPublicKey) { toast.error("Paystack is not configured"); return; }
 
     setPaying(true);
     try {
-      const sellingPrice = Number(selectedChecker.selling_price);
+      const sellingPrice = Number(selectedChecker.selling_price) * qty;
       const total = sellingPrice + calcPaystackCharge(sellingPrice);
       const buyerEmail = `${checkerPhone.replace(/\D/g, "") || "guest"}@guest.datahiveghana.com`;
 
@@ -136,6 +140,7 @@ export default function PublicStore() {
           checker_id: selectedChecker.checker.id,
           recipient_phone: checkerPhone,
           reference,
+          quantity: qty,
         },
       });
 
@@ -144,9 +149,11 @@ export default function PublicStore() {
         return;
       }
 
-      toast.success(`Checker purchase successful. Serial: ${data.checker?.serial} | PIN: ${data.checker?.pin}`);
+      toast.success("Checker purchase successful");
+      setCheckerSuccess(data.checker || null);
       setSelectedChecker(null);
       setCheckerPhone("");
+      setCheckerQty("1");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Payment failed";
       if (message !== "Payment cancelled") toast.error(message);
@@ -185,6 +192,23 @@ export default function PublicStore() {
       </header>
 
       <section className="max-w-5xl mx-auto px-6 lg:px-10 py-12">
+        {checkerSuccess && (
+          <Card className="p-6 mb-8 border-success/40 bg-success/5">
+            <h3 className="text-xl font-bold">Purchase Successful</h3>
+            <p className="text-sm text-muted-foreground mt-1">Your checker purchase is complete.</p>
+            <div className="mt-4 space-y-2 text-sm">
+              <p><span className="text-muted-foreground">Checker:</span> {checkerSuccess.name} ({String(checkerSuccess.exam_type || "").toUpperCase()})</p>
+              <p><span className="text-muted-foreground">Quantity:</span> {checkerSuccess.quantity}</p>
+            </div>
+            <div className="mt-4 max-h-52 overflow-auto rounded-lg border border-border bg-card p-3 space-y-2 text-sm">
+              {(checkerSuccess.codes || []).map((code: any, i: number) => (
+                <p key={`${code.serial}-${i}`}>#{i + 1} Serial: <span className="font-semibold">{code.serial}</span> | PIN: <span className="font-semibold">{code.pin}</span></p>
+              ))}
+            </div>
+            <Button className="mt-4" variant="outline" onClick={() => setCheckerSuccess(null)}>Close Success Page</Button>
+          </Card>
+        )}
+
         <div className="space-y-3 mb-10 store-reveal">
           <p className="inline-flex rounded-full px-3 py-1 text-xs tracking-wider uppercase store-chip">Fast Fulfillment Network</p>
           <h2 className="text-3xl lg:text-4xl font-bold">Buy data instantly</h2>
@@ -313,9 +337,14 @@ export default function PublicStore() {
               <div className="rounded-lg bg-muted p-4 space-y-1.5 text-sm">
                 <div className="flex justify-between"><span className="text-muted-foreground">Product</span><span className="font-medium">{selectedChecker.checker.name}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Exam</span><span className="font-medium uppercase">{selectedChecker.checker.exam_type}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Price</span><span>{formatGHS(selectedChecker.selling_price)}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Paystack charge</span><span>{formatGHS(calcPaystackCharge(Number(selectedChecker.selling_price)))}</span></div>
-                <div className="flex justify-between font-bold pt-2 border-t border-border"><span>Total</span><span>{formatGHS(Number(selectedChecker.selling_price) + calcPaystackCharge(Number(selectedChecker.selling_price)))}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Unit Price</span><span>{formatGHS(selectedChecker.selling_price)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Quantity</span><span>{checkerQty}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Paystack charge</span><span>{formatGHS(calcPaystackCharge(Number(selectedChecker.selling_price) * (Number(checkerQty) || 1)))}</span></div>
+                <div className="flex justify-between font-bold pt-2 border-t border-border"><span>Total</span><span>{formatGHS((Number(selectedChecker.selling_price) * (Number(checkerQty) || 1)) + calcPaystackCharge(Number(selectedChecker.selling_price) * (Number(checkerQty) || 1)))}</span></div>
+              </div>
+              <div className="space-y-2">
+                <Label>Quantity</Label>
+                <Input type="number" min="1" max="50" value={checkerQty} onChange={(e) => setCheckerQty(e.target.value)} />
               </div>
               <div className="space-y-2">
                 <Label>Phone Number</Label>

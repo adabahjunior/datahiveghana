@@ -36,6 +36,12 @@ const makeCode = () => {
   };
 };
 
+const toQuantity = (value: unknown): number | null => {
+  const n = Number(value);
+  if (!Number.isInteger(n) || n <= 0 || n > 50) return null;
+  return n;
+};
+
 const hasProfitTx = async (supabase: ReturnType<typeof createClient>, orderId: string, userId: string) => {
   const { data } = await supabase
     .from("transactions")
@@ -120,10 +126,11 @@ Deno.serve(async (req) => {
     const paystackSecretKey = Deno.env.get("PAYSTACK_SECRET_KEY");
     if (!paystackSecretKey) return json({ error: "Server Paystack secret is not configured" }, 500);
 
-    const { store_id, checker_id, recipient_phone, reference } = await req.json();
+    const { store_id, checker_id, recipient_phone, reference, quantity } = await req.json();
     const phone = String(recipient_phone || "").trim();
+    const qty = toQuantity(quantity);
 
-    if (!store_id || !checker_id || !reference || phone.length < 10) {
+    if (!store_id || !checker_id || !reference || phone.length < 10 || !qty) {
       return json({ error: "Invalid input" }, 400);
     }
 
@@ -150,11 +157,11 @@ Deno.serve(async (req) => {
     const checker = checkerPrice.checker as any;
     if (!checker.is_active) return json({ error: "Checker product is inactive" }, 400);
 
-    const sellingPrice = Number(checkerPrice.selling_price);
+    const unitSellingPrice = Number(checkerPrice.selling_price);
     const adminAgentBase = Number(checker.agent_price);
 
     let costPrice = adminAgentBase;
-    let sellerProfit = Math.max(0, sellingPrice - adminAgentBase);
+    let sellerProfit = Math.max(0, unitSellingPrice - adminAgentBase);
     let parentAgentProfit = 0;
 
     let subagentUserId: string | undefined;
@@ -182,11 +189,12 @@ Deno.serve(async (req) => {
       const subagentBase = Number(subagentPrice?.base_price ?? adminAgentBase);
       costPrice = adminAgentBase;
       parentAgentProfit = Math.max(0, subagentBase - adminAgentBase);
-      sellerProfit = Math.max(0, sellingPrice - subagentBase);
+      sellerProfit = Math.max(0, unitSellingPrice - subagentBase);
     }
 
-    const totalProfit = sellerProfit + parentAgentProfit;
-    const expectedTotal = sellingPrice + calcPaystackCharge(sellingPrice);
+    const totalProfit = Number(((sellerProfit + parentAgentProfit) * qty).toFixed(2));
+    const totalSellingPrice = Number((unitSellingPrice * qty).toFixed(2));
+    const expectedTotal = totalSellingPrice + calcPaystackCharge(totalSellingPrice);
 
     const verifiedPayment = await verifyPaystackReference(reference, paystackSecretKey);
     const paidAmount = Number(verifiedPayment.amount || 0) / 100;
@@ -195,23 +203,26 @@ Deno.serve(async (req) => {
     if (verifiedPayment.currency !== "GHS") return json({ error: "Invalid payment currency" }, 400);
     if (paidAmount + 0.01 < expectedTotal) return json({ error: "Paid amount is lower than expected" }, 400);
 
-    const { serial, pin } = makeCode();
+    const checkerCodes = Array.from({ length: qty }, () => makeCode());
+    const firstCode = checkerCodes[0];
 
     const { data: order, error: orderError } = await supabase.from("checker_orders").insert({
       store_id: store.id,
       checker_id: checker.id,
       recipient_phone: phone,
       exam_type: checker.exam_type,
-      amount_paid: sellingPrice,
+      quantity: qty,
+      amount_paid: totalSellingPrice,
       cost_price: costPrice,
       agent_profit: totalProfit,
-      seller_profit: sellerProfit,
-      upstream_agent_profit: parentAgentProfit,
+      seller_profit: Number((sellerProfit * qty).toFixed(2)),
+      upstream_agent_profit: Number((parentAgentProfit * qty).toFixed(2)),
       status: "delivered",
       paid_via: "paystack",
       paystack_reference: reference,
-      checker_serial: serial,
-      checker_pin: pin,
+      checker_serial: firstCode.serial,
+      checker_pin: firstCode.pin,
+      checker_codes: checkerCodes,
       notes: `Store checker purchase`,
     }).select().single();
 
@@ -220,11 +231,11 @@ Deno.serve(async (req) => {
     await creditStoreSaleProfit(supabase, {
       orderId: order.id,
       subagentUserId,
-      subagentProfit: sellerProfit,
+      subagentProfit: Number((sellerProfit * qty).toFixed(2)),
       parentAgentId,
-      parentAgentProfit,
+      parentAgentProfit: Number((parentAgentProfit * qty).toFixed(2)),
       fallbackAgentId: store.agent_id,
-      fallbackProfit: sellerProfit,
+      fallbackProfit: Number((sellerProfit * qty).toFixed(2)),
     });
 
     return json({
@@ -233,8 +244,8 @@ Deno.serve(async (req) => {
       checker: {
         name: checker.name,
         exam_type: checker.exam_type,
-        serial,
-        pin,
+        quantity: qty,
+        codes: checkerCodes,
       },
     });
   } catch (e) {

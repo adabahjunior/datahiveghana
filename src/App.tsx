@@ -31,6 +31,7 @@ import NotFound from "./pages/NotFound";
 import AdminLayout from "./components/admin/AdminLayout";
 import AdminOverviewPage from "./pages/admin/AdminOverviewPage";
 import AdminOrdersPage from "./pages/admin/AdminOrdersPage";
+import AdminCheckerOrdersPage from "./pages/admin/AdminCheckerOrdersPage";
 import AdminAgentsPage from "./pages/admin/AdminAgentsPage";
 import AdminUsersPage from "./pages/admin/AdminUsersPage";
 import AdminWithdrawalsPage from "./pages/admin/AdminWithdrawalsPage";
@@ -85,6 +86,7 @@ const App = () => (
                 <Route index element={<Navigate to="/admin/overview" replace />} />
                 <Route path="overview" element={<AdminOverviewPage />} />
                 <Route path="orders" element={<AdminOrdersPage />} />
+                <Route path="checker-orders" element={<AdminCheckerOrdersPage />} />
                 <Route path="agents" element={<AdminAgentsPage />} />
                 <Route path="users" element={<AdminUsersPage />} />
                 <Route path="withdrawals" element={<AdminWithdrawalsPage />} />

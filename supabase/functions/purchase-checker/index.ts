@@ -14,6 +14,12 @@ const makeCode = () => {
   };
 };
 
+const toQuantity = (value: unknown): number | null => {
+  const n = Number(value);
+  if (!Number.isInteger(n) || n <= 0 || n > 50) return null;
+  return n;
+};
+
 const fail = (message: string, code: string) =>
   json({ success: false, error: message, code });
 
@@ -30,10 +36,12 @@ Deno.serve(async (req) => {
     const { data: authData, error: authError } = await supabase.auth.getUser(auth.replace("Bearer ", ""));
     if (authError || !authData.user) return fail("Unauthorized", "UNAUTHORIZED");
 
-    const { checker_id, recipient_phone } = await req.json();
+    const { checker_id, recipient_phone, quantity } = await req.json();
     const phone = String(recipient_phone || "").trim();
+    const qty = toQuantity(quantity);
     if (!checker_id || typeof checker_id !== "string") return fail("checker_id is required", "INVALID_INPUT");
     if (phone.length < 10) return fail("Valid recipient_phone is required", "INVALID_INPUT");
+    if (!qty) return fail("quantity must be an integer between 1 and 50", "INVALID_INPUT");
 
     const [{ data: checker }, { data: byUserProfile }, { data: roles }] = await Promise.all([
       supabase.from("checker_products").select("*").eq("id", checker_id).eq("is_active", true).maybeSingle(),
@@ -77,22 +85,24 @@ Deno.serve(async (req) => {
 
     if (!Number.isFinite(costPrice) || costPrice <= 0) return fail("Invalid checker price", "INVALID_PRICE");
 
+    const totalCost = Number((costPrice * qty).toFixed(2));
     const wallet = Number(byUserProfile.wallet_balance || 0);
-    if (wallet < costPrice) return fail("Insufficient wallet balance", "INSUFFICIENT_BALANCE");
+    if (wallet < totalCost) return fail("Insufficient wallet balance", "INSUFFICIENT_BALANCE");
 
-    const newBalance = wallet - costPrice;
+    const newBalance = Number((wallet - totalCost).toFixed(2));
 
     const { data: debitedProfile, error: debitError } = await supabase
       .from("profiles")
       .update({ wallet_balance: newBalance })
       .eq("user_id", authData.user.id)
-      .gte("wallet_balance", costPrice)
+      .gte("wallet_balance", totalCost)
       .select("wallet_balance")
       .maybeSingle();
 
     if (debitError || !debitedProfile) return fail("Wallet debit failed", "WALLET_DEBIT_FAILED");
 
-    const { serial, pin } = makeCode();
+    const checkerCodes = Array.from({ length: qty }, () => makeCode());
+    const firstCode = checkerCodes[0];
 
     const { data: order, error: orderError } = await supabase
       .from("checker_orders")
@@ -101,15 +111,17 @@ Deno.serve(async (req) => {
         checker_id: checker.id,
         recipient_phone: phone,
         exam_type: checker.exam_type,
-        amount_paid: costPrice,
+        quantity: qty,
+        amount_paid: totalCost,
         cost_price: costPrice,
         agent_profit: 0,
         seller_profit: 0,
         upstream_agent_profit: 0,
         status: "delivered",
         paid_via: "wallet",
-        checker_serial: serial,
-        checker_pin: pin,
+        checker_serial: firstCode.serial,
+        checker_pin: firstCode.pin,
+        checker_codes: checkerCodes,
         notes: "Direct dashboard checker purchase",
       })
       .select("id")
@@ -124,8 +136,8 @@ Deno.serve(async (req) => {
       user_id: authData.user.id,
       type: "data_purchase",
       status: "success",
-      amount: costPrice,
-      description: `${String(checker.name)} checker purchase (${String(checker.exam_type).toUpperCase()})`,
+      amount: totalCost,
+      description: `${String(checker.name)} checker purchase x${qty} (${String(checker.exam_type).toUpperCase()})`,
     });
 
     if (txError) {
@@ -141,8 +153,8 @@ Deno.serve(async (req) => {
       checker: {
         name: checker.name,
         exam_type: checker.exam_type,
-        serial,
-        pin,
+        quantity: qty,
+        codes: checkerCodes,
       },
     });
   } catch (e) {

@@ -26,6 +26,8 @@ export default function ResultCheckers() {
   const [history, setHistory] = useState<any[]>([]);
   const [selected, setSelected] = useState<any>(null);
   const [recipientPhone, setRecipientPhone] = useState("");
+  const [quantity, setQuantity] = useState("1");
+  const [successOrder, setSuccessOrder] = useState<any>(null);
 
   const isSubAgent = roles.includes("sub_agent");
   const isAgent = profile?.is_agent || roles.includes("agent");
@@ -45,7 +47,7 @@ export default function ResultCheckers() {
       (supabase as any).from("checker_products").select("*").eq("is_active", true).order("display_order"),
       (supabase as any)
         .from("checker_orders")
-        .select("id,exam_type,amount_paid,checker_serial,checker_pin,created_at,checker:checker_products(name)")
+        .select("id,exam_type,quantity,amount_paid,checker_serial,checker_pin,created_at,checker:checker_products(name)")
         .eq("buyer_user_id", profile.user_id)
         .order("created_at", { ascending: false })
         .limit(20),
@@ -90,8 +92,13 @@ export default function ResultCheckers() {
   const handleBuy = async () => {
     if (!selected) return;
     const phone = recipientPhone.trim();
+    const qty = Number(quantity);
     if (phone.length < 10) {
       toast.error("Enter a valid phone number");
+      return;
+    }
+    if (!Number.isInteger(qty) || qty <= 0 || qty > 50) {
+      toast.error("Quantity must be between 1 and 50");
       return;
     }
 
@@ -100,6 +107,7 @@ export default function ResultCheckers() {
       body: {
         checker_id: selected.id,
         recipient_phone: phone,
+        quantity: qty,
       },
     });
     setBuying(false);
@@ -109,9 +117,11 @@ export default function ResultCheckers() {
       return;
     }
 
-    toast.success(`Purchase successful. Serial: ${data.checker?.serial} | PIN: ${data.checker?.pin}`);
+    toast.success("Purchase successful");
+    setSuccessOrder(data.checker || null);
     setSelected(null);
     setRecipientPhone("");
+    setQuantity("1");
     await refreshProfile();
     await load();
   };
@@ -122,6 +132,23 @@ export default function ResultCheckers() {
         title="Result Checkers"
         description="Buy WASSCE and BECE checkers instantly from your dashboard."
       />
+
+      {successOrder && (
+        <Card className="p-6 mb-6 border-success/40 bg-success/5">
+          <h3 className="text-xl font-bold">Purchase Successful</h3>
+          <p className="text-sm text-muted-foreground mt-1">Your checker purchase has been completed and generated successfully.</p>
+          <div className="mt-4 space-y-2 text-sm">
+            <p><span className="text-muted-foreground">Checker:</span> {successOrder.name} ({String(successOrder.exam_type || "").toUpperCase()})</p>
+            <p><span className="text-muted-foreground">Quantity:</span> {successOrder.quantity}</p>
+          </div>
+          <div className="mt-4 max-h-52 overflow-auto rounded-lg border border-border bg-card p-3 space-y-2 text-sm">
+            {(successOrder.codes || []).map((code: any, i: number) => (
+              <p key={`${code.serial}-${i}`}>#{i + 1} Serial: <span className="font-semibold">{code.serial}</span> | PIN: <span className="font-semibold">{code.pin}</span></p>
+            ))}
+          </div>
+          <Button className="mt-4" variant="outline" onClick={() => setSuccessOrder(null)}>Close Success Page</Button>
+        </Card>
+      )}
 
       <div className="grid sm:grid-cols-3 gap-4 mb-8">
         <Card className="p-5">
@@ -183,7 +210,7 @@ export default function ResultCheckers() {
                 </div>
                 <div className="text-sm text-right">
                   <p className="font-bold">{formatGHS(Number(h.amount_paid || 0))}</p>
-                  <p className="text-xs text-muted-foreground">Serial: {h.checker_serial || "-"} | PIN: {h.checker_pin || "-"}</p>
+                  <p className="text-xs text-muted-foreground">Qty: {h.quantity || 1} | Serial: {h.checker_serial || "-"} | PIN: {h.checker_pin || "-"}</p>
                 </div>
               </div>
             ))}
@@ -204,7 +231,12 @@ export default function ResultCheckers() {
             <div className="space-y-3">
               <div className="rounded-lg bg-muted p-4 text-sm">
                 <div className="flex justify-between"><span className="text-muted-foreground">Exam</span><span>{examLabel[selected.exam_type] || selected.exam_type}</span></div>
-                <div className="flex justify-between font-bold"><span>Price</span><span>{formatGHS(resolvePrice(selected))}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Unit Price</span><span>{formatGHS(resolvePrice(selected))}</span></div>
+                <div className="flex justify-between font-bold"><span>Total</span><span>{formatGHS(resolvePrice(selected) * (Number(quantity) || 1))}</span></div>
+              </div>
+              <div className="space-y-2">
+                <Label>Quantity</Label>
+                <Input type="number" min="1" max="50" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
               </div>
               <div className="space-y-2">
                 <Label>Phone Number</Label>
