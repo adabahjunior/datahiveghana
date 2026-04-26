@@ -32,22 +32,32 @@ export default function SubAgentSignup() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [store, setStore] = useState<any>(null);
+  const [subagentFeeEnabled, setSubagentFeeEnabled] = useState(true);
+  const [subagentBaseFee, setSubagentBaseFee] = useState(SUBAGENT_BASE_FEE);
 
   useEffect(() => {
     if (!slug) return;
     (async () => {
-      const { data } = await supabase
-        .from("agent_stores")
-        .select("id,agent_id,store_name,slug,subagent_fee_addon,is_active")
-        .eq("slug", slug)
-        .maybeSingle();
+      const [{ data }, { data: feeSetting }] = await Promise.all([
+        supabase
+          .from("agent_stores")
+          .select("id,agent_id,store_name,slug,subagent_fee_addon,is_active")
+          .eq("slug", slug)
+          .maybeSingle(),
+        supabase.from("app_settings").select("value").eq("key", "subagent_activation_fee").maybeSingle(),
+      ]);
       setStore(data);
+      const feeConfig = feeSetting?.value as { enabled?: boolean; amount?: number } | null;
+      if (feeConfig && typeof feeConfig === "object" && "amount" in feeConfig) {
+        setSubagentFeeEnabled(feeConfig.enabled !== false);
+        setSubagentBaseFee(feeConfig.enabled !== false ? Number(feeConfig.amount) : 0);
+      }
       setLoading(false);
     })();
   }, [slug]);
 
   const addon = Number(store?.subagent_fee_addon || 0);
-  const totalFee = SUBAGENT_BASE_FEE + addon;
+  const totalFee = subagentBaseFee + addon;
   const paystackTotal = totalFee + calcPaystackCharge(totalFee);
 
   const blockedReason = useMemo(() => {
@@ -138,7 +148,7 @@ export default function SubAgentSignup() {
     const { data, error } = await supabase.functions.invoke("activate-subagent", {
       body: {
         store_slug: slug,
-        payment_method: "wallet",
+        payment_method: totalFee === 0 ? "free" : "wallet",
       },
     });
     setProcessingWallet(false);
@@ -223,7 +233,11 @@ export default function SubAgentSignup() {
           <div className="text-center mb-8">
             <p className="inline-flex rounded-full px-3 py-1 text-xs tracking-wider uppercase store-chip mb-3">Subagent Access Program</p>
             <h1 className="text-3xl font-bold">{store.store_name} Subagent Program</h1>
-            <p className="text-muted-foreground mt-2">Create your account on this page, pay activation, and unlock your subagent dashboard.</p>
+            <p className="text-muted-foreground mt-2">
+              {totalFee === 0
+                ? "Create your account on this page and activate for free."
+                : "Create your account on this page, pay activation, and unlock your subagent dashboard."}
+            </p>
           </div>
 
           <div className="flex flex-col items-center text-center gap-2 mb-5">
@@ -236,7 +250,11 @@ export default function SubAgentSignup() {
 
           <div className="rounded-lg border border-border p-4 mb-8 text-center">
             <p className="text-xs uppercase tracking-wider text-muted-foreground">Final Price</p>
-            <p className="text-3xl font-bold mt-1">{formatGHS(totalFee)}</p>
+            {totalFee === 0 ? (
+              <p className="text-3xl font-bold mt-1 text-primary">FREE</p>
+            ) : (
+              <p className="text-3xl font-bold mt-1">{formatGHS(totalFee)}</p>
+            )}
           </div>
 
           {!user && (
@@ -300,6 +318,12 @@ export default function SubAgentSignup() {
 
           {!canActivate ? (
             <p className="text-sm text-muted-foreground text-center">{blockedReason}</p>
+          ) : totalFee === 0 ? (
+            <div className="max-w-lg mx-auto">
+              <Button className="w-full" onClick={activateViaWallet} disabled={processingWallet}>
+                {processingWallet && <Loader2 className="h-4 w-4 animate-spin" />} Activate for Free
+              </Button>
+            </div>
           ) : (
             <div className="grid sm:grid-cols-2 gap-3 max-w-lg mx-auto">
               <Button variant="outline" onClick={activateViaWallet} disabled={processingWallet || processingPaystack}>
@@ -311,7 +335,11 @@ export default function SubAgentSignup() {
             </div>
           )}
 
-          <p className="text-xs text-muted-foreground text-center mt-6">After successful payment, your subagent dashboard will unlock automatically.</p>
+          <p className="text-xs text-muted-foreground text-center mt-6">
+            {totalFee === 0
+              ? "Your subagent dashboard will unlock automatically after activation."
+              : "After successful payment, your subagent dashboard will unlock automatically."}
+          </p>
         </Card>
         </div>
       </section>

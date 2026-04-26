@@ -28,8 +28,10 @@ export default function SubAgents() {
   const [savingPrice, setSavingPrice] = useState<Record<string, boolean>>({});
   const [subagents, setSubagents] = useState<any[]>([]);
   const [managingSubagent, setManagingSubagent] = useState<Record<string, boolean>>({});
+  const [platformBaseFee, setPlatformBaseFee] = useState(SUBAGENT_BASE_FEE);
+  const [platformFeeEnabled, setPlatformFeeEnabled] = useState(true);
 
-  const totalSignupFee = SUBAGENT_BASE_FEE + (Number(addon) || 0);
+  const totalSignupFee = (platformFeeEnabled ? platformBaseFee : 0) + (Number(addon) || 0);
 
   const groupedPackages = useMemo(() => {
     const groups: Record<string, any[]> = {};
@@ -54,11 +56,20 @@ export default function SubAgents() {
     if (!profile) return;
     setLoading(true);
 
-    const { data: myStore } = await supabase
-      .from("agent_stores")
-      .select("id,slug,store_name,subagent_fee_addon")
-      .eq("agent_id", profile.user_id)
-      .maybeSingle();
+    const [{ data: myStore }, { data: feeSetting }] = await Promise.all([
+      supabase
+        .from("agent_stores")
+        .select("id,slug,store_name,subagent_fee_addon")
+        .eq("agent_id", profile.user_id)
+        .maybeSingle(),
+      supabase.from("app_settings").select("value").eq("key", "subagent_activation_fee").maybeSingle(),
+    ]);
+
+    const feeConfig = feeSetting?.value as { enabled?: boolean; amount?: number } | null;
+    if (feeConfig && typeof feeConfig === "object" && "amount" in feeConfig) {
+      setPlatformFeeEnabled(feeConfig.enabled !== false);
+      setPlatformBaseFee(feeConfig.enabled !== false ? Number(feeConfig.amount) : 0);
+    }
 
     setStore(myStore);
     setAddon(String(Number(myStore?.subagent_fee_addon || 0)));
@@ -264,7 +275,11 @@ export default function SubAgents() {
       <div className="grid lg:grid-cols-3 gap-5 mb-8">
         <Card className="p-5 store-kpi store-reveal">
           <p className="text-xs uppercase text-muted-foreground">Platform Base Fee</p>
-          <p className="text-2xl font-bold mt-1">{formatGHS(SUBAGENT_BASE_FEE)}</p>
+          {platformFeeEnabled ? (
+            <p className="text-2xl font-bold mt-1">{formatGHS(platformBaseFee)}</p>
+          ) : (
+            <p className="text-2xl font-bold mt-1 text-primary">Free</p>
+          )}
         </Card>
         <Card className="p-5 store-kpi store-reveal store-delay-1">
           <p className="text-xs uppercase text-muted-foreground">Your Addon</p>
@@ -272,13 +287,21 @@ export default function SubAgents() {
         </Card>
         <Card className="p-5 store-kpi store-reveal store-delay-2">
           <p className="text-xs uppercase text-muted-foreground">Subagent Signup Price</p>
-          <p className="text-2xl font-bold mt-1">{formatGHS(totalSignupFee)}</p>
+          {totalSignupFee === 0 ? (
+            <p className="text-2xl font-bold mt-1 text-primary">Free</p>
+          ) : (
+            <p className="text-2xl font-bold mt-1">{formatGHS(totalSignupFee)}</p>
+          )}
         </Card>
       </div>
 
       <Card className="p-6 mb-8 store-panel store-panel-strong store-reveal store-delay-1">
         <h3 className="font-semibold mb-1">Subagent Signup Settings</h3>
-        <p className="text-sm text-muted-foreground mb-4">Subagents joining through your store pay base 30 GHS plus your addon.</p>
+        <p className="text-sm text-muted-foreground mb-4">
+          {platformFeeEnabled
+            ? `Subagents joining through your store pay base ${formatGHS(platformBaseFee)} plus your addon.`
+            : "Platform base fee is currently free. Subagents pay only your addon amount (if set)."}
+        </p>
         <div className="grid md:grid-cols-[220px_180px] gap-3 items-end">
           <div className="space-y-2">
             <Label>Addon Amount (GHS)</Label>

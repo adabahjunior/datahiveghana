@@ -5,7 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const SUBAGENT_BASE_FEE = 30;
+// Base fee is loaded dynamically from app_settings at request time
 
 const calcPaystackCharge = (amount: number, percent = 1.95, cap = 100): number => {
   const charge = (amount * percent) / 100;
@@ -85,13 +85,14 @@ Deno.serve(async (req) => {
 
     const { store_slug, payment_method, reference } = await req.json();
     if (!store_slug || typeof store_slug !== "string") return fail("store_slug is required", "INVALID_INPUT");
-    if (!["wallet", "paystack"].includes(payment_method)) return fail("payment_method must be wallet or paystack", "INVALID_INPUT");
+    if (!["wallet", "paystack", "free"].includes(payment_method)) return fail("payment_method must be wallet, paystack, or free", "INVALID_INPUT");
 
-    const [{ data: store }, { data: profile }, { data: roles }, { data: existingAssignment }] = await Promise.all([
+    const [{ data: store }, { data: profile }, { data: roles }, { data: existingAssignment }, { data: feeSetting }] = await Promise.all([
       supabase.from("agent_stores").select("id,agent_id,store_name,is_active,subagent_fee_addon").eq("slug", store_slug).maybeSingle(),
       supabase.from("profiles").select("wallet_balance,is_banned").eq("user_id", user.id).maybeSingle(),
       supabase.from("user_roles").select("role").eq("user_id", user.id),
       supabase.from("subagent_assignments").select("id,status").eq("subagent_user_id", user.id).maybeSingle(),
+      supabase.from("app_settings").select("value").eq("key", "subagent_activation_fee").maybeSingle(),
     ]);
 
     if (!store || !store.is_active) return fail("Store not found", "STORE_NOT_FOUND");
@@ -106,8 +107,36 @@ Deno.serve(async (req) => {
       return fail("Already an active subagent", "ALREADY_SUBAGENT");
     }
 
+    // Resolve dynamic base fee from app_settings
+    const feeConfig = feeSetting?.value as { enabled?: boolean; amount?: number } | null;
+    const feeEnabled = feeConfig?.enabled !== false;
+    const subagentBaseFee = feeEnabled ? Number(feeConfig?.amount ?? 30) : 0;
+
     const addon = Number(store.subagent_fee_addon || 0);
-    const activationFee = SUBAGENT_BASE_FEE + addon;
+    const activationFee = subagentBaseFee + addon;
+
+    // Free path: no payment required
+    if (activationFee === 0) {
+      const { error: roleError } = await supabase
+        .from("user_roles")
+        .upsert({ user_id: user.id, role: "sub_agent" }, { onConflict: "user_id,role" });
+      if (roleError) return fail(`Role assignment failed: ${roleError.message}`, "ROLE_ASSIGN_FAILED");
+
+      const { error: assignError } = await supabase.from("subagent_assignments").upsert({
+        parent_agent_id: store.agent_id,
+        subagent_user_id: user.id,
+        source_store_id: store.id,
+        paid_amount: 0,
+        paid_via: "free",
+        status: "active",
+      }, { onConflict: "subagent_user_id" });
+      if (assignError) {
+        await supabase.from("user_roles").delete().eq("user_id", user.id).eq("role", "sub_agent");
+        return fail(`Subagent assignment failed: ${assignError.message}`, "ASSIGNMENT_FAILED");
+      }
+
+      return json({ success: true, new_balance: Number(profile.wallet_balance) });
+    }
 
     if (payment_method === "wallet") {
       if (Number(profile.wallet_balance) < activationFee) {

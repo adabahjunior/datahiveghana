@@ -15,14 +15,14 @@ import {
 import { Switch } from "@/components/ui/switch";
 import "@/styles/store-experience.css";
 
-const ACTIVATION_FEE = 80;
-
 export default function MyStore() {
   const { profile, isAgent, isSubAgent, isSeller, refreshProfile } = useAuth();
   const [store, setStore] = useState<any>(null);
   const [activating, setActivating] = useState(false);
   const [creating, setCreating] = useState(false);
   const [savingStoreDetails, setSavingStoreDetails] = useState(false);
+  const [agentFeeEnabled, setAgentFeeEnabled] = useState(true);
+  const [agentFeeAmount, setAgentFeeAmount] = useState(80);
   const [form, setForm] = useState({ store_name: "", support_phone: "", whatsapp_link: "" });
   const [storeDetailsForm, setStoreDetailsForm] = useState({ support_phone: "", whatsapp_link: "" });
   const [packages, setPackages] = useState<any[]>([]);
@@ -35,13 +35,24 @@ export default function MyStore() {
   useEffect(() => {
     if (!profile) return;
     (async () => {
-      const { data: s } = await supabase.from("agent_stores").select("*").eq("agent_id", profile.user_id).maybeSingle();
+      const [{ data: s }, { data: feeSetting }] = await Promise.all([
+        supabase.from("agent_stores").select("*").eq("agent_id", profile.user_id).maybeSingle(),
+        supabase.from("app_settings").select("value").eq("key", "agent_activation_fee").maybeSingle(),
+      ]);
       setStore(s);
       if (s) {
         setStoreDetailsForm({
           support_phone: s.support_phone || "",
           whatsapp_link: s.whatsapp_link || "",
         });
+      }
+      const feeConfig = feeSetting?.value as { enabled?: boolean; amount?: number } | number | null;
+      if (feeConfig && typeof feeConfig === "object" && "amount" in feeConfig) {
+        setAgentFeeEnabled(feeConfig.enabled !== false);
+        setAgentFeeAmount(Number(feeConfig.amount));
+      } else if (typeof feeConfig === "number") {
+        setAgentFeeEnabled(true);
+        setAgentFeeAmount(feeConfig);
       }
       if (s) await loadCatalog(s.id);
     })();
@@ -264,8 +275,17 @@ export default function MyStore() {
 
           <Card className="p-8 border-primary/30 store-panel store-panel-strong store-pulse">
             <p className="text-xs uppercase tracking-wider text-muted-foreground">One-time fee</p>
-            <p className="text-5xl font-bold mt-2">{formatGHS(ACTIVATION_FEE)}</p>
-            <p className="text-sm text-muted-foreground mt-2">Pay once. Keep agent benefits forever.</p>
+            {agentFeeEnabled ? (
+              <>
+                <p className="text-5xl font-bold mt-2">{formatGHS(agentFeeAmount)}</p>
+                <p className="text-sm text-muted-foreground mt-2">Pay once. Keep agent benefits forever.</p>
+              </>
+            ) : (
+              <>
+                <p className="text-5xl font-bold mt-2 text-primary">FREE</p>
+                <p className="text-sm text-muted-foreground mt-2">No activation fee. Register instantly.</p>
+              </>
+            )}
 
             <ul className="space-y-3 my-8">
               {["Wholesale wholesale data prices", "Your own mini-website", "Custom pricing dashboard", "Order management", "Profit withdrawals"].map((t) => (
@@ -277,11 +297,13 @@ export default function MyStore() {
 
             <Button onClick={handleActivate} disabled={activating} className="w-full" size="lg">
               {activating && <Loader2 className="h-4 w-4 animate-spin" />}
-              Pay {formatGHS(ACTIVATION_FEE)} from Wallet
+              {agentFeeEnabled ? `Pay ${formatGHS(agentFeeAmount)} from Wallet` : "Activate for Free"}
             </Button>
-            <p className="text-xs text-muted-foreground mt-3 text-center">
-              Wallet: {formatGHS(profile.wallet_balance)}
-            </p>
+            {agentFeeEnabled && (
+              <p className="text-xs text-muted-foreground mt-3 text-center">
+                Wallet: {formatGHS(profile.wallet_balance)}
+              </p>
+            )}
           </Card>
         </div>
       </div>
