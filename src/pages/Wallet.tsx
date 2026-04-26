@@ -37,6 +37,7 @@ export default function Wallet() {
         amountInGhs: total,
         metadata: {
           purpose: "wallet_topup",
+          user_id: profile.user_id,
           topup_amount: numAmount,
           paystack_charge: charge,
         },
