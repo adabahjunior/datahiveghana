@@ -62,7 +62,6 @@ export default function AdminUniversityFormsPage() {
   const [editingSchool, setEditingSchool] = useState<School | null>(null);
   const [schoolName, setSchoolName] = useState("");
   const [schoolDesc, setSchoolDesc] = useState("");
-  const [schoolOrder, setSchoolOrder] = useState("0");
   const [savingSchool, setSavingSchool] = useState(false);
   const [deletingSchool, setDeletingSchool] = useState<School | null>(null);
 
@@ -187,7 +186,6 @@ export default function AdminUniversityFormsPage() {
     setEditingSchool(school || null);
     setSchoolName(school?.name || "");
     setSchoolDesc(school?.description || "");
-    setSchoolOrder(String(school?.display_order ?? 0));
     setSchoolDialog(true);
   };
 
@@ -195,22 +193,33 @@ export default function AdminUniversityFormsPage() {
     if (!schoolName.trim()) { toast.error("School name is required"); return; }
     setSavingSchool(true);
 
-    const payload = {
-      name: schoolName.trim(),
-      description: schoolDesc.trim() || null,
-      display_order: Number(schoolOrder) || 0,
-    };
-
     let error;
     if (editingSchool) {
       ({ error } = await (supabase as any)
         .from("university_schools")
-        .update(payload)
+        .update({
+          name: schoolName.trim(),
+          description: schoolDesc.trim() || null,
+        })
         .eq("id", editingSchool.id));
     } else {
+      const { data: lastSchool } = await (supabase as any)
+        .from("university_schools")
+        .select("display_order")
+        .order("display_order", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const nextDisplayOrder = Number(lastSchool?.display_order ?? -1) + 1;
+
       ({ error } = await (supabase as any)
         .from("university_schools")
-        .insert({ ...payload, is_published: false }));
+        .insert({
+          name: schoolName.trim(),
+          description: schoolDesc.trim() || null,
+          display_order: nextDisplayOrder,
+          is_published: false,
+        }));
     }
 
     setSavingSchool(false);
@@ -555,10 +564,6 @@ export default function AdminUniversityFormsPage() {
                 onChange={(e) => setSchoolDesc(e.target.value)}
                 rows={2}
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Display Order</Label>
-              <Input type="number" min={0} value={schoolOrder} onChange={(e) => setSchoolOrder(e.target.value)} />
             </div>
           </div>
           <DialogFooter>
