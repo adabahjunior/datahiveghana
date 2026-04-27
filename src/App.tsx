@@ -38,6 +38,8 @@ import AdminWithdrawalsPage from "./pages/admin/AdminWithdrawalsPage";
 import AdminPricingPage from "./pages/admin/AdminPricingPage";
 import AdminNotificationsPage from "./pages/admin/AdminNotificationsPage";
 import AdminSiteSettingsPage from "./pages/admin/AdminSiteSettingsPage";
+import AdminUniversityFormsPage from "./pages/admin/AdminUniversityFormsPage";
+import UniversityForms from "./pages/UniversityForms";
 
 const queryClient = new QueryClient();
 
@@ -80,6 +82,7 @@ const App = () => (
               <Route path="/withdrawal" element={<Shell><ProtectedRoute requireAgent><Withdrawal /></ProtectedRoute></Shell>} />
               <Route path="/sub-agents" element={<Shell><ProtectedRoute requireAgent><SubAgents /></ProtectedRoute></Shell>} />
               <Route path="/result-checkers" element={<Shell><ResultCheckers /></Shell>} />
+              <Route path="/university-forms" element={<Shell><UniversityForms /></Shell>} />
               <Route path="/report" element={<Shell><Report /></Shell>} />
               <Route path="/settings" element={<Shell><Settings /></Shell>} />
               <Route path="/admin" element={<AdminShell />}>
@@ -93,6 +96,7 @@ const App = () => (
                 <Route path="pricing" element={<AdminPricingPage />} />
                 <Route path="notifications" element={<AdminNotificationsPage />} />
                 <Route path="site-settings" element={<AdminSiteSettingsPage />} />
+                <Route path="university-forms" element={<AdminUniversityFormsPage />} />
               </Route>
 
               <Route path="*" element={<MaintenanceGate><NotFound /></MaintenanceGate>} />
