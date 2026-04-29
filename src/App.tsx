@@ -10,6 +10,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AppShell } from "@/components/AppShell";
 import { MaintenanceGate } from "@/components/MaintenanceGate";
 import { FloatingWhatsAppButton } from "@/components/FloatingWhatsAppButton";
+import { OrderTrackerBanner } from "@/components/OrderTrackerBanner";
 
 import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
@@ -65,6 +66,7 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
+            <OrderTrackerBanner />
             <Routes>
               <Route path="/" element={<MaintenanceGate><Landing /></MaintenanceGate>} />
               <Route path="/auth" element={<Auth />} />

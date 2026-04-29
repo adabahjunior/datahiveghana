@@ -38,3 +38,6 @@ verify_jwt = true
 
 [functions.guest-checker-purchase]
 verify_jwt = false
+
+[functions.track-order]
+verify_jwt = false
