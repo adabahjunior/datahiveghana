@@ -21,6 +21,19 @@ const dotClass: Record<string, string> = {
   airteltigo_bigtime: "bg-airteltigo",
 };
 
+const sortByNetworkAsc = (a: any, b: any) => {
+  const networkA = String(a?.package?.network || "");
+  const networkB = String(b?.package?.network || "");
+  const byNetwork = networkA.localeCompare(networkB);
+  if (byNetwork !== 0) return byNetwork;
+
+  const orderA = Number(a?.package?.display_order ?? 0);
+  const orderB = Number(b?.package?.display_order ?? 0);
+  if (orderA !== orderB) return orderA - orderB;
+
+  return String(a?.package?.name || "").localeCompare(String(b?.package?.name || ""));
+};
+
 export default function PublicStore() {
   const { slug } = useParams<{ slug: string }>();
   const { theme, toggleTheme } = useTheme();
@@ -54,7 +67,11 @@ export default function PublicStore() {
             .select("selling_price, is_listed, checker:checker_products(*)")
             .eq("store_id", s.id).eq("is_listed", true),
         ]);
-        setItems((data || []).filter((i: any) => i.package?.is_active));
+        const activePackages = (data || [])
+          .filter((i: any) => i.package?.is_active)
+          .sort(sortByNetworkAsc);
+
+        setItems(activePackages);
         setCheckerItems((checkerData || []).filter((i: any) => i.checker?.is_active));
       }
       setLoading(false);
@@ -170,7 +187,7 @@ export default function PublicStore() {
     </div>
   );
 
-  const networks = Array.from(new Set(items.map((i) => i.package.network)));
+  const networks = Array.from(new Set(items.map((i) => i.package.network))).sort((a, b) => String(a).localeCompare(String(b)));
 
   return (
     <div className="store-canvas store-public min-h-screen">
