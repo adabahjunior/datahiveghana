@@ -5,15 +5,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const makeCode = () => {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const gen = (len: number) => Array.from({ length: len }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
-  return {
-    serial: `RC-${gen(4)}-${gen(4)}-${gen(4)}`,
-    pin: `${Math.floor(100000000000 + Math.random() * 900000000000)}`,
-  };
-};
-
 const toQuantity = (value: unknown): number | null => {
   const n = Number(value);
   if (!Number.isInteger(n) || n <= 0 || n > 50) return null;
@@ -101,9 +92,6 @@ Deno.serve(async (req) => {
 
     if (debitError || !debitedProfile) return fail("Wallet debit failed", "WALLET_DEBIT_FAILED");
 
-    const checkerCodes = Array.from({ length: qty }, () => makeCode());
-    const firstCode = checkerCodes[0];
-
     const { data: order, error: orderError } = await supabase
       .from("checker_orders")
       .insert({
@@ -119,10 +107,10 @@ Deno.serve(async (req) => {
         upstream_agent_profit: 0,
         status: "delivered",
         paid_via: "wallet",
-        checker_serial: firstCode.serial,
-        checker_pin: firstCode.pin,
-        checker_codes: checkerCodes,
-        notes: "Direct dashboard checker purchase",
+        checker_serial: null,
+        checker_pin: null,
+        checker_codes: null,
+        notes: "Direct dashboard checker purchase. Checker details will be delivered via SMS.",
       })
       .select("id")
       .single();
@@ -154,7 +142,6 @@ Deno.serve(async (req) => {
         name: checker.name,
         exam_type: checker.exam_type,
         quantity: qty,
-        codes: checkerCodes,
       },
     });
   } catch (e) {

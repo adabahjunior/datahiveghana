@@ -239,9 +239,12 @@ Deno.serve(async (req) => {
       description: `${pkg.name} ${pkg.network.toUpperCase()} ${finalOrderStatus === "delivered" ? "delivered" : "queued"} → ${recipient_phone}`,
     });
     if (txError) {
-      await supabase.from("orders").delete().eq("id", order.id);
-      await supabase.from("profiles").update({ wallet_balance: Number(profile.wallet_balance) }).eq(profileMatchColumn, user.id);
-      return fail(`Transaction logging failed: ${txError.message}`, "TRANSACTION_LOG_FAILED");
+      await supabase
+        .from("orders")
+        .update({
+          notes: appendNotes(order.notes, `Transaction log failed: ${txError.message}`),
+        })
+        .eq("id", order.id);
     }
 
     return json({ success: true, order_id: order?.id, new_balance: newBalance, provider_status: providerOrderStatus });

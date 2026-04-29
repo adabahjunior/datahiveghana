@@ -27,15 +27,6 @@ const verifyPaystackReference = async (reference: string, secretKey: string) => 
   return payload.data as { status: string; amount: number; currency: string; reference: string };
 };
 
-const makeCode = () => {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const gen = (len: number) => Array.from({ length: len }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
-  return {
-    serial: `RC-${gen(4)}-${gen(4)}-${gen(4)}`,
-    pin: `${Math.floor(100000000000 + Math.random() * 900000000000)}`,
-  };
-};
-
 const toQuantity = (value: unknown): number | null => {
   const n = Number(value);
   if (!Number.isInteger(n) || n <= 0 || n > 50) return null;
@@ -203,9 +194,6 @@ Deno.serve(async (req) => {
     if (verifiedPayment.currency !== "GHS") return json({ error: "Invalid payment currency" }, 400);
     if (paidAmount + 0.01 < expectedTotal) return json({ error: "Paid amount is lower than expected" }, 400);
 
-    const checkerCodes = Array.from({ length: qty }, () => makeCode());
-    const firstCode = checkerCodes[0];
-
     const { data: order, error: orderError } = await supabase.from("checker_orders").insert({
       store_id: store.id,
       checker_id: checker.id,
@@ -220,10 +208,10 @@ Deno.serve(async (req) => {
       status: "delivered",
       paid_via: "paystack",
       paystack_reference: reference,
-      checker_serial: firstCode.serial,
-      checker_pin: firstCode.pin,
-      checker_codes: checkerCodes,
-      notes: `Store checker purchase`,
+      checker_serial: null,
+      checker_pin: null,
+      checker_codes: null,
+      notes: `Store checker purchase. Checker details will be delivered via SMS.`,
     }).select().single();
 
     if (orderError || !order) return json({ error: orderError?.message || "Order creation failed" }, 500);
@@ -245,7 +233,6 @@ Deno.serve(async (req) => {
         name: checker.name,
         exam_type: checker.exam_type,
         quantity: qty,
-        codes: checkerCodes,
       },
     });
   } catch (e) {

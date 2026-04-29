@@ -241,7 +241,7 @@ Deno.serve(async (req) => {
     if (verifiedPayment.currency !== "GHS") return json({ error: "Invalid payment currency" }, 400);
     if (paidAmount + 0.01 < expectedTotal) return json({ error: "Paid amount is lower than expected" }, 400);
 
-    const { data: order } = await supabase.from("orders").insert({
+    const { data: order, error: orderError } = await supabase.from("orders").insert({
       store_id: store.id,
       package_id: pkg.id,
       recipient_phone,
@@ -256,6 +256,10 @@ Deno.serve(async (req) => {
       paid_via: "paystack",
       notes: `paystack_ref:${reference}\nRouting order to provider...`,
     }).select().single();
+
+    if (orderError || !order) {
+      return json({ error: orderError?.message || "Order creation failed" }, 500);
+    }
 
     const providerNetworkKey = NETWORK_KEY_MAP[pkg.network as string];
     if (!providerNetworkKey) {

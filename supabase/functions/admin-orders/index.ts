@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
     if (!adminRole) return json({ success: false, error: "Admins only" });
 
     const [{ data: orders }, { data: stores }, { data: assignments }, { data: withdrawals }] = await Promise.all([
-      supabase.from("orders").select("*").order("created_at", { ascending: false }).limit(1000),
+      supabase.from("orders").select("*").order("created_at", { ascending: false }).limit(5000),
       supabase.from("agent_stores").select("id,store_name,slug,agent_id"),
       supabase.from("subagent_assignments").select("parent_agent_id,subagent_user_id,status").eq("status", "active"),
       supabase.from("withdrawals").select("amount,status"),

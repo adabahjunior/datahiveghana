@@ -117,8 +117,8 @@ export default function ResultCheckers() {
       return;
     }
 
-    toast.success("Purchase successful");
-    setSuccessOrder(data.checker || null);
+    toast.success("Purchase successful. Checker details will be sent via SMS.");
+    setSuccessOrder(data?.checker ? { ...data.checker, recipient_phone: phone } : null);
     setSelected(null);
     setRecipientPhone("");
     setQuantity("1");
@@ -136,15 +136,14 @@ export default function ResultCheckers() {
       {successOrder && (
         <Card className="p-6 mb-6 border-success/40 bg-success/5">
           <h3 className="text-xl font-bold">Purchase Successful</h3>
-          <p className="text-sm text-muted-foreground mt-1">Your checker purchase has been completed and generated successfully.</p>
+          <p className="text-sm text-muted-foreground mt-1">Your payment was successful. Please check your SMS for checker details.</p>
           <div className="mt-4 space-y-2 text-sm">
             <p><span className="text-muted-foreground">Checker:</span> {successOrder.name} ({String(successOrder.exam_type || "").toUpperCase()})</p>
             <p><span className="text-muted-foreground">Quantity:</span> {successOrder.quantity}</p>
+            <p><span className="text-muted-foreground">Phone:</span> {successOrder.recipient_phone || "Provided phone number"}</p>
           </div>
-          <div className="mt-4 max-h-52 overflow-auto rounded-lg border border-border bg-card p-3 space-y-2 text-sm">
-            {(successOrder.codes || []).map((code: any, i: number) => (
-              <p key={`${code.serial}-${i}`}>#{i + 1} Serial: <span className="font-semibold">{code.serial}</span> | PIN: <span className="font-semibold">{code.pin}</span></p>
-            ))}
+          <div className="mt-4 rounded-lg border border-border bg-card p-3 text-sm text-muted-foreground">
+            Checker serial and PIN are no longer shown on-screen. They will be sent to the provided phone number via SMS.
           </div>
           <Button className="mt-4" variant="outline" onClick={() => setSuccessOrder(null)}>Close Success Page</Button>
         </Card>
@@ -210,7 +209,7 @@ export default function ResultCheckers() {
                 </div>
                 <div className="text-sm text-right">
                   <p className="font-bold">{formatGHS(Number(h.amount_paid || 0))}</p>
-                  <p className="text-xs text-muted-foreground">Qty: {h.quantity || 1} | Serial: {h.checker_serial || "-"} | PIN: {h.checker_pin || "-"}</p>
+                  <p className="text-xs text-muted-foreground">Qty: {h.quantity || 1} | Checker details sent via SMS</p>
                 </div>
               </div>
             ))}
