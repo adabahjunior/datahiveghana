@@ -41,3 +41,6 @@ verify_jwt = false
 
 [functions.track-order]
 verify_jwt = false
+
+[functions.guest-university-form-purchase]
+verify_jwt = false

@@ -47,6 +47,13 @@ export default function PublicStore() {
   const [checkerPhone, setCheckerPhone] = useState("");
   const [checkerQty, setCheckerQty] = useState("1");
   const [checkerSuccess, setCheckerSuccess] = useState<any>(null);
+  const [universityItems, setUniversityItems] = useState<any[]>([]);
+  const [selectedUniversity, setSelectedUniversity] = useState<any>(null);
+  const [uniFullName, setUniFullName] = useState("");
+  const [uniPhone, setUniPhone] = useState("");
+  const [uniEmail, setUniEmail] = useState("");
+  const [universitySuccess, setUniversitySuccess] = useState<any>(null);
+  const [universityWhatsapp, setUniversityWhatsapp] = useState("");
   const [paying, setPaying] = useState(false);
   const [filter, setFilter] = useState<string>("all");
   const paystackPublicKey = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY;
@@ -58,7 +65,7 @@ export default function PublicStore() {
       const { data: s } = await supabase.from("agent_stores").select("*").eq("slug", slug).maybeSingle();
       setStore(s);
       if (s) {
-        const [{ data }, { data: checkerData }] = await Promise.all([
+        const [{ data }, { data: checkerData }, { data: uniData }, { data: uniSetting }] = await Promise.all([
           supabase.from("store_package_prices")
             .select("selling_price, is_listed, package:data_packages(*)")
             .eq("store_id", s.id).eq("is_listed", true),
@@ -66,6 +73,12 @@ export default function PublicStore() {
             .from("store_checker_prices")
             .select("selling_price, is_listed, checker:checker_products(*)")
             .eq("store_id", s.id).eq("is_listed", true),
+          (supabase as any)
+            .from("store_university_form_prices")
+            .select("selling_price, is_listed, form_type:university_form_types(id,name,price,is_active,school:university_schools(id,name,is_published))")
+            .eq("store_id", s.id)
+            .eq("is_listed", true),
+          supabase.from("app_settings").select("value").eq("key", "university_forms_whatsapp").maybeSingle(),
         ]);
         const activePackages = (data || [])
           .filter((i: any) => i.package?.is_active)
@@ -73,6 +86,8 @@ export default function PublicStore() {
 
         setItems(activePackages);
         setCheckerItems((checkerData || []).filter((i: any) => i.checker?.is_active));
+        setUniversityItems((uniData || []).filter((i: any) => i.form_type?.is_active && i.form_type?.school?.is_published));
+        setUniversityWhatsapp(typeof uniSetting?.value === "string" ? uniSetting.value : "");
       }
       setLoading(false);
     })();
@@ -179,6 +194,76 @@ export default function PublicStore() {
     }
   };
 
+  const handleBuyUniversityForm = async () => {
+    if (!selectedUniversity) return;
+    if (!uniFullName.trim()) { toast.error("Enter your full name"); return; }
+    if (!uniPhone.trim() || uniPhone.trim().length < 10) { toast.error("Enter a valid phone number"); return; }
+    if (!uniEmail.trim() || !uniEmail.includes("@")) { toast.error("Enter a valid email"); return; }
+    if (!paystackPublicKey) { toast.error("Paystack is not configured"); return; }
+
+    setPaying(true);
+    try {
+      const sellingPrice = Number(selectedUniversity.selling_price);
+      const total = sellingPrice + calcPaystackCharge(sellingPrice);
+
+      const reference = await startPaystackCheckout({
+        publicKey: paystackPublicKey,
+        email: uniEmail.trim(),
+        amountInGhs: total,
+        metadata: {
+          purpose: "guest_university_form_purchase",
+          store_id: store.id,
+          form_type_id: selectedUniversity.form_type.id,
+          phone: uniPhone.trim(),
+        },
+      });
+
+      const { data, error } = await supabase.functions.invoke("guest-university-form-purchase", {
+        body: {
+          store_id: store.id,
+          form_type_id: selectedUniversity.form_type.id,
+          full_name: uniFullName.trim(),
+          phone: uniPhone.trim(),
+          email: uniEmail.trim(),
+          reference,
+        },
+      });
+
+      if (error || !data?.success) {
+        toast.error(data?.error || error?.message || "University form purchase failed");
+        return;
+      }
+
+      toast.success("University form purchase successful");
+      setUniversitySuccess(data.order || null);
+      setSelectedUniversity(null);
+      setUniFullName("");
+      setUniPhone("");
+      setUniEmail("");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Payment failed";
+      if (message !== "Payment cancelled") toast.error(message);
+    } finally {
+      setPaying(false);
+    }
+  };
+
+  const handleUniversityWhatsApp = () => {
+    if (!universitySuccess || !universityWhatsapp) return;
+    const num = universityWhatsapp.replace(/\D/g, "");
+    const message = encodeURIComponent(
+      `Hello, I purchased a university admission form.\n\n` +
+      `🏫 School: ${universitySuccess.school_name}\n` +
+      `📋 Form Type: ${universitySuccess.form_type_name}\n` +
+      `💰 Amount Paid: ${formatGHS(universitySuccess.amount_paid)}\n` +
+      `👤 Name: ${universitySuccess.full_name}\n` +
+      `📞 Phone: ${universitySuccess.phone}\n` +
+      `📧 Email: ${universitySuccess.email}\n` +
+      `🔖 Reference: ${universitySuccess.reference}`
+    );
+    window.open(`https://wa.me/${num}?text=${message}`, "_blank");
+  };
+
   if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;
   if (!store) return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4">
@@ -223,6 +308,28 @@ export default function PublicStore() {
               ))}
             </div>
             <Button className="mt-4" variant="outline" onClick={() => setCheckerSuccess(null)}>Close Success Page</Button>
+          </Card>
+        )}
+
+        {universitySuccess && (
+          <Card className="p-6 mb-8 border-green-500/40 bg-green-500/5">
+            <h3 className="text-xl font-bold">University Form Purchase Successful</h3>
+            <p className="text-sm text-muted-foreground mt-1">Your order has been recorded successfully.</p>
+            <div className="mt-4 space-y-2 text-sm">
+              <p><span className="text-muted-foreground">School:</span> {universitySuccess.school_name}</p>
+              <p><span className="text-muted-foreground">Form Type:</span> {universitySuccess.form_type_name}</p>
+              <p><span className="text-muted-foreground">Amount:</span> {formatGHS(universitySuccess.amount_paid)}</p>
+              <p><span className="text-muted-foreground">Phone:</span> {universitySuccess.phone}</p>
+              <p><span className="text-muted-foreground">Reference:</span> {universitySuccess.reference}</p>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {universityWhatsapp && (
+                <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={handleUniversityWhatsApp}>
+                  Contact Admin via WhatsApp
+                </Button>
+              )}
+              <Button variant="outline" onClick={() => setUniversitySuccess(null)}>Close</Button>
+            </div>
           </Card>
         )}
 
@@ -294,6 +401,30 @@ export default function PublicStore() {
                 <p className="text-xl font-bold">{item.checker.name}</p>
                 <p className="text-2xl font-bold mt-5 mb-4 pt-5 border-t border-border">{formatGHS(item.selling_price)}</p>
                 <Button className="w-full" onClick={() => setSelectedChecker(item)}>Buy Checker</Button>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-14 mb-6 store-reveal">
+          <p className="inline-flex rounded-full px-3 py-1 text-xs tracking-wider uppercase store-chip">University Forms</p>
+          <h3 className="text-2xl font-bold mt-3">Admission Forms</h3>
+          <p className="text-muted-foreground mt-1">Buy university admission forms listed by this store.</p>
+        </div>
+
+        {universityItems.length === 0 ? (
+          <p className="py-8 text-sm text-muted-foreground">No university forms listed yet.</p>
+        ) : (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {universityItems.map((item) => (
+              <Card key={item.form_type.id} className="p-6 store-panel hover:border-primary/50 transition-colors store-reveal store-delay-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs uppercase tracking-wider text-muted-foreground">University Form</span>
+                  <span className="text-xs text-muted-foreground">{item.form_type.school?.name || "School"}</span>
+                </div>
+                <p className="text-xl font-bold">{item.form_type.name}</p>
+                <p className="text-2xl font-bold mt-5 mb-4 pt-5 border-t border-border">{formatGHS(item.selling_price)}</p>
+                <Button className="w-full" onClick={() => setSelectedUniversity(item)}>Buy University Form</Button>
               </Card>
             ))}
           </div>
@@ -372,6 +503,45 @@ export default function PublicStore() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setSelectedChecker(null)}>Cancel</Button>
             <Button onClick={handleBuyChecker} disabled={paying}>
+              {paying && <Loader2 className="h-4 w-4 animate-spin" />} Pay with Paystack
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!selectedUniversity} onOpenChange={(o) => !o && setSelectedUniversity(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm University Form Purchase</DialogTitle>
+            <DialogDescription>Enter your details to continue to Paystack checkout.</DialogDescription>
+          </DialogHeader>
+          {selectedUniversity && (
+            <div className="space-y-4">
+              <div className="rounded-lg bg-muted p-4 space-y-1.5 text-sm">
+                <div className="flex justify-between"><span className="text-muted-foreground">School</span><span className="font-medium">{selectedUniversity.form_type.school?.name || "School"}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Form Type</span><span className="font-medium">{selectedUniversity.form_type.name}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Price</span><span>{formatGHS(selectedUniversity.selling_price)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Paystack charge</span><span>{formatGHS(calcPaystackCharge(Number(selectedUniversity.selling_price)))}</span></div>
+                <div className="flex justify-between font-bold pt-2 border-t border-border"><span>Total</span><span>{formatGHS(Number(selectedUniversity.selling_price) + calcPaystackCharge(Number(selectedUniversity.selling_price)))}</span></div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Full Name</Label>
+                <Input placeholder="Your full name" value={uniFullName} onChange={(e) => setUniFullName(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Phone Number (WhatsApp preferred)</Label>
+                <Input placeholder="0244000000" value={uniPhone} onChange={(e) => setUniPhone(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Email Address</Label>
+                <Input type="email" placeholder="name@email.com" value={uniEmail} onChange={(e) => setUniEmail(e.target.value)} />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSelectedUniversity(null)}>Cancel</Button>
+            <Button onClick={handleBuyUniversityForm} disabled={paying}>
               {paying && <Loader2 className="h-4 w-4 animate-spin" />} Pay with Paystack
             </Button>
           </DialogFooter>

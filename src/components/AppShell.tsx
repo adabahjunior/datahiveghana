@@ -111,6 +111,7 @@ const SidebarContent = ({ onNavigate }: { onNavigate?: () => void }) => {
         )}
 
         <NavItem to="/my-store" icon={Store} label="My Store" />
+        {isSeller && <NavItem to="/my-store/university-forms" icon={GraduationCap} label="Store University Forms" />}
         {isSeller && <NavItem to="/my-store/orders" icon={ShoppingBag} label="My Store Orders" />}
         {isSeller && <NavItem to="/flyer-generator" icon={WandSparkles} label="Flyer Generator" />}
         {isSeller && <NavItem to="/withdrawal" icon={Banknote} label="Withdrawal" />}

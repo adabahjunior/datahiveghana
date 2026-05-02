@@ -41,6 +41,7 @@ import AdminNotificationsPage from "./pages/admin/AdminNotificationsPage";
 import AdminSiteSettingsPage from "./pages/admin/AdminSiteSettingsPage";
 import AdminUniversityFormsPage from "./pages/admin/AdminUniversityFormsPage";
 import UniversityForms from "./pages/UniversityForms";
+import MyStoreUniversityForms from "./pages/MyStoreUniversityForms";
 
 const queryClient = new QueryClient();
 
@@ -79,6 +80,7 @@ const App = () => (
               <Route path="/transactions" element={<Shell><Transactions /></Shell>} />
               <Route path="/buy/:network" element={<Shell><BuyData /></Shell>} />
               <Route path="/my-store" element={<Shell><MyStore /></Shell>} />
+              <Route path="/my-store/university-forms" element={<Shell><ProtectedRoute requireAgent><MyStoreUniversityForms /></ProtectedRoute></Shell>} />
               <Route path="/my-store/orders" element={<Shell><ProtectedRoute requireAgent><MyStoreOrders /></ProtectedRoute></Shell>} />
               <Route path="/flyer-generator" element={<Shell><ProtectedRoute requireAgent><FlyerGenerator /></ProtectedRoute></Shell>} />
               <Route path="/withdrawal" element={<Shell><ProtectedRoute requireAgent><Withdrawal /></ProtectedRoute></Shell>} />
