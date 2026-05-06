@@ -16,6 +16,7 @@ import "@/styles/store-experience.css";
 const SUBAGENT_BASE_FEE = 30;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const getSubAgentStoreCacheKey = (slug: string) => `subagent_store_cache:${slug}`;
 
 export default function SubAgentSignup() {
   const { slug } = useParams<{ slug: string }>();
@@ -40,9 +41,31 @@ export default function SubAgentSignup() {
   const [subagentBaseFee, setSubagentBaseFee] = useState(SUBAGENT_BASE_FEE);
 
   useEffect(() => {
-    if (!slug) return;
+    if (!slug) {
+      setLoading(false);
+      setStoreMissing(true);
+      return;
+    }
+
+    const cacheKey = getSubAgentStoreCacheKey(slug);
+    let hasUsableStore = false;
+    const cachedRaw = localStorage.getItem(cacheKey);
+    if (cachedRaw) {
+      try {
+        const cached = JSON.parse(cachedRaw);
+        if (cached?.store) {
+          hasUsableStore = true;
+          setStore(cached.store);
+          setLoading(false);
+        }
+      } catch {
+        localStorage.removeItem(cacheKey);
+      }
+    }
+
+    let cancelled = false;
     (async () => {
-      setLoading(true);
+      if (!hasUsableStore) setLoading(true);
       setStoreError("");
       setStoreMissing(false);
 
@@ -67,14 +90,20 @@ export default function SubAgentSignup() {
         if (attempt < 3) await sleep(500 * attempt);
       }
 
-      setStore(data);
+      if (cancelled) return;
+
       if (!data && lastError) {
-        setStoreError("We couldn't load this store right now. Please try again.");
+        if (!hasUsableStore) setStoreError("We couldn't load this store right now. Please try again.");
         setLoading(false);
         return;
       }
+
       if (!data) {
-        setStoreMissing(true);
+        if (!hasUsableStore) setStoreMissing(true);
+      } else {
+        hasUsableStore = true;
+        setStore(data);
+        localStorage.setItem(cacheKey, JSON.stringify({ store: data, updatedAt: Date.now() }));
       }
 
       const feeConfig = feeSetting?.value as { enabled?: boolean; amount?: number } | null;
@@ -82,8 +111,12 @@ export default function SubAgentSignup() {
         setSubagentFeeEnabled(feeConfig.enabled !== false);
         setSubagentBaseFee(feeConfig.enabled !== false ? Number(feeConfig.amount) : 0);
       }
-      setLoading(false);
+      if (!cancelled) setLoading(false);
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [slug]);
 
   const addon = Number(store?.subagent_fee_addon || 0);
@@ -241,7 +274,7 @@ export default function SubAgentSignup() {
     return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;
   }
 
-  if (storeError) {
+  if (storeError && !store) {
     return (
       <div className="min-h-screen bg-background store-canvas">
         <section className="max-w-5xl mx-auto px-6 lg:px-10 py-12">

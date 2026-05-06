@@ -36,6 +36,8 @@ const sortByNetworkAsc = (a: any, b: any) => {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const getPublicStoreCacheKey = (slug: string) => `public_store_cache:${slug}`;
+
 export default function PublicStore() {
   const { slug } = useParams<{ slug: string }>();
   const { theme, toggleTheme } = useTheme();
@@ -64,45 +66,74 @@ export default function PublicStore() {
   const subAgentBaseFee = 30;
 
   useEffect(() => {
-    if (!slug) return;
+    if (!slug) {
+      setLoading(false);
+      setStoreMissing(true);
+      return;
+    }
+
+    const cacheKey = getPublicStoreCacheKey(slug);
+    let hasUsableStore = false;
+    const cachedRaw = localStorage.getItem(cacheKey);
+    if (cachedRaw) {
+      try {
+        const cached = JSON.parse(cachedRaw);
+        if (cached?.store) {
+          hasUsableStore = true;
+          setStore(cached.store);
+          setItems(Array.isArray(cached.items) ? cached.items : []);
+          setCheckerItems(Array.isArray(cached.checkerItems) ? cached.checkerItems : []);
+          setUniversityItems(Array.isArray(cached.universityItems) ? cached.universityItems : []);
+          setUniversityWhatsapp(typeof cached.universityWhatsapp === "string" ? cached.universityWhatsapp : "");
+          setLoading(false);
+        }
+      } catch {
+        localStorage.removeItem(cacheKey);
+      }
+    }
+
+    let cancelled = false;
     (async () => {
-      setLoading(true);
+      if (!hasUsableStore) setLoading(true);
       setStoreError("");
       setStoreMissing(false);
 
       let s: any = null;
       let lastError = "";
 
-      for (let attempt = 1; attempt <= 3; attempt++) {
-        const { data, error } = await supabase
-          .from("agent_stores")
-          .select("*")
-          .eq("slug", slug)
-          .maybeSingle();
+      try {
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          const { data, error } = await supabase
+            .from("agent_stores")
+            .select("*")
+            .eq("slug", slug)
+            .maybeSingle();
 
-        if (!error) {
-          s = data;
-          break;
+          if (!error) {
+            s = data;
+            break;
+          }
+
+          lastError = error.message;
+          if (attempt < 3) await sleep(500 * attempt);
         }
 
-        lastError = error.message;
-        if (attempt < 3) await sleep(500 * attempt);
-      }
+        if (cancelled) return;
 
-      setStore(s);
-      if (!s && lastError) {
-        setStoreError("We couldn't load this store right now. Please try again.");
-        setLoading(false);
-        return;
-      }
+        if (!s && lastError) {
+          if (!hasUsableStore) setStoreError("We couldn't load this store right now. Please try again.");
+          setLoading(false);
+          return;
+        }
 
-      if (!s) {
-        setStoreMissing(true);
-        setLoading(false);
-        return;
-      }
+        if (!s) {
+          if (!hasUsableStore) setStoreMissing(true);
+          setLoading(false);
+          return;
+        }
 
-      if (s) {
+        hasUsableStore = true;
+
         const [{ data }, { data: checkerData }, { data: uniData }, { data: uniSetting }] = await Promise.all([
           supabase.from("store_package_prices")
             .select("selling_price, is_listed, package:data_packages(*)")
@@ -118,17 +149,42 @@ export default function PublicStore() {
             .eq("is_listed", true),
           supabase.from("app_settings").select("value").eq("key", "university_forms_whatsapp").maybeSingle(),
         ]);
+
+        if (cancelled) return;
+
         const activePackages = (data || [])
           .filter((i: any) => i.package?.is_active)
           .sort(sortByNetworkAsc);
+        const activeCheckers = (checkerData || []).filter((i: any) => i.checker?.is_active);
+        const activeUniversity = (uniData || []).filter((i: any) => i.form_type?.is_active && i.form_type?.school?.is_published);
+        const whatsapp = typeof uniSetting?.value === "string" ? uniSetting.value : "";
 
+        setStore(s);
         setItems(activePackages);
-        setCheckerItems((checkerData || []).filter((i: any) => i.checker?.is_active));
-        setUniversityItems((uniData || []).filter((i: any) => i.form_type?.is_active && i.form_type?.school?.is_published));
-        setUniversityWhatsapp(typeof uniSetting?.value === "string" ? uniSetting.value : "");
+        setCheckerItems(activeCheckers);
+        setUniversityItems(activeUniversity);
+        setUniversityWhatsapp(whatsapp);
+
+        localStorage.setItem(cacheKey, JSON.stringify({
+          store: s,
+          items: activePackages,
+          checkerItems: activeCheckers,
+          universityItems: activeUniversity,
+          universityWhatsapp: whatsapp,
+          updatedAt: Date.now(),
+        }));
+      } catch {
+        if (!hasUsableStore) {
+          setStoreError("We couldn't load this store right now. Please try again.");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      setLoading(false);
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [slug]);
 
   const filtered = filter === "all" ? items : items.filter((i) => i.package.network === filter);
@@ -303,7 +359,7 @@ export default function PublicStore() {
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;
-  if (storeError) return (
+  if (storeError && !store) return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 text-center">
       <p className="text-2xl font-bold">Store temporarily unavailable</p>
       <p className="text-muted-foreground mt-2 max-w-md">{storeError}</p>
