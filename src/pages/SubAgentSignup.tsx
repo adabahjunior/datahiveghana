@@ -15,6 +15,8 @@ import "@/styles/store-experience.css";
 
 const SUBAGENT_BASE_FEE = 30;
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 export default function SubAgentSignup() {
   const { slug } = useParams<{ slug: string }>();
   const { user, profile, isSubAgent, refreshProfile } = useAuth();
@@ -32,21 +34,49 @@ export default function SubAgentSignup() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [store, setStore] = useState<any>(null);
+  const [storeError, setStoreError] = useState("");
+  const [storeMissing, setStoreMissing] = useState(false);
   const [subagentFeeEnabled, setSubagentFeeEnabled] = useState(true);
   const [subagentBaseFee, setSubagentBaseFee] = useState(SUBAGENT_BASE_FEE);
 
   useEffect(() => {
     if (!slug) return;
     (async () => {
-      const [{ data }, { data: feeSetting }] = await Promise.all([
-        supabase
+      setLoading(true);
+      setStoreError("");
+      setStoreMissing(false);
+
+      const { data: feeSetting } = await supabase.from("app_settings").select("value").eq("key", "subagent_activation_fee").maybeSingle();
+
+      let data: any = null;
+      let lastError = "";
+
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        const { data: storeData, error } = await supabase
           .from("agent_stores")
           .select("id,agent_id,store_name,slug,subagent_fee_addon,is_active")
           .eq("slug", slug)
-          .maybeSingle(),
-        supabase.from("app_settings").select("value").eq("key", "subagent_activation_fee").maybeSingle(),
-      ]);
+          .maybeSingle();
+
+        if (!error) {
+          data = storeData;
+          break;
+        }
+
+        lastError = error.message;
+        if (attempt < 3) await sleep(500 * attempt);
+      }
+
       setStore(data);
+      if (!data && lastError) {
+        setStoreError("We couldn't load this store right now. Please try again.");
+        setLoading(false);
+        return;
+      }
+      if (!data) {
+        setStoreMissing(true);
+      }
+
       const feeConfig = feeSetting?.value as { enabled?: boolean; amount?: number } | null;
       if (feeConfig && typeof feeConfig === "object" && "amount" in feeConfig) {
         setSubagentFeeEnabled(feeConfig.enabled !== false);
@@ -211,14 +241,27 @@ export default function SubAgentSignup() {
     return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;
   }
 
-  if (!store) {
+  if (storeError) {
+    return (
+      <div className="min-h-screen bg-background store-canvas">
+        <section className="max-w-5xl mx-auto px-6 lg:px-10 py-12">
+          <Card className="p-8 w-full max-w-xl mx-auto text-center store-panel">
+            <h1 className="text-2xl font-bold">Subagent Program</h1>
+            <p className="text-muted-foreground mt-2">{storeError}</p>
+            <Button className="mt-6" onClick={() => window.location.reload()}>Retry</Button>
+          </Card>
+        </section>
+      </div>
+    );
+  }
+
+  if (storeMissing || !store) {
     return (
       <div className="min-h-screen bg-background store-canvas">
         <section className="max-w-5xl mx-auto px-6 lg:px-10 py-12">
           <Card className="p-8 w-full max-w-xl mx-auto text-center store-panel">
           <h1 className="text-2xl font-bold">Subagent Program</h1>
           <p className="text-muted-foreground mt-2">Store not found.</p>
-          <Button asChild className="mt-6"><Link to="/">Go Home</Link></Button>
           </Card>
         </section>
       </div>

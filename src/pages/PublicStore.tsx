@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -34,10 +34,14 @@ const sortByNetworkAsc = (a: any, b: any) => {
   return String(a?.package?.name || "").localeCompare(String(b?.package?.name || ""));
 };
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 export default function PublicStore() {
   const { slug } = useParams<{ slug: string }>();
   const { theme, toggleTheme } = useTheme();
   const [store, setStore] = useState<any>(null);
+  const [storeError, setStoreError] = useState("");
+  const [storeMissing, setStoreMissing] = useState(false);
   const [items, setItems] = useState<any[]>([]);
   const [checkerItems, setCheckerItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,8 +66,42 @@ export default function PublicStore() {
   useEffect(() => {
     if (!slug) return;
     (async () => {
-      const { data: s } = await supabase.from("agent_stores").select("*").eq("slug", slug).maybeSingle();
+      setLoading(true);
+      setStoreError("");
+      setStoreMissing(false);
+
+      let s: any = null;
+      let lastError = "";
+
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        const { data, error } = await supabase
+          .from("agent_stores")
+          .select("*")
+          .eq("slug", slug)
+          .maybeSingle();
+
+        if (!error) {
+          s = data;
+          break;
+        }
+
+        lastError = error.message;
+        if (attempt < 3) await sleep(500 * attempt);
+      }
+
       setStore(s);
+      if (!s && lastError) {
+        setStoreError("We couldn't load this store right now. Please try again.");
+        setLoading(false);
+        return;
+      }
+
+      if (!s) {
+        setStoreMissing(true);
+        setLoading(false);
+        return;
+      }
+
       if (s) {
         const [{ data }, { data: checkerData }, { data: uniData }, { data: uniSetting }] = await Promise.all([
           supabase.from("store_package_prices")
@@ -265,10 +303,17 @@ export default function PublicStore() {
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;
-  if (!store) return (
+  if (storeError) return (
+    <div className="min-h-screen flex flex-col items-center justify-center px-4 text-center">
+      <p className="text-2xl font-bold">Store temporarily unavailable</p>
+      <p className="text-muted-foreground mt-2 max-w-md">{storeError}</p>
+      <Button variant="outline" className="mt-4" onClick={() => window.location.reload()}>Retry</Button>
+    </div>
+  );
+  if (storeMissing || !store) return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4">
       <p className="text-2xl font-bold">Store not found</p>
-      <Button variant="outline" asChild className="mt-4"><Link to="/">Back home</Link></Button>
+      <p className="text-muted-foreground mt-2 text-center max-w-md">This store link is unavailable right now.</p>
     </div>
   );
 
