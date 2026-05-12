@@ -123,6 +123,14 @@ export default function SubAgentSignup() {
   const totalFee = subagentBaseFee + addon;
   const paystackTotal = totalFee + calcPaystackCharge(totalFee);
 
+  // If user is already a subagent, send them straight to their dashboard
+  useEffect(() => {
+    if (isSubAgent && store) {
+      toast.success("You're already a subagent. Redirecting to dashboard.");
+      navigate("/dashboard");
+    }
+  }, [isSubAgent, store, navigate]);
+
   const blockedReason = useMemo(() => {
     if (!store) return "Store not found";
     if (!store.is_active) return "This store is currently inactive";
@@ -223,7 +231,7 @@ export default function SubAgentSignup() {
 
     await refreshProfile();
     toast.success("Subagent account activated successfully");
-    navigate("/my-store");
+    navigate("/dashboard");
   };
 
   const activateViaPaystack = async () => {
@@ -261,7 +269,7 @@ export default function SubAgentSignup() {
 
       await refreshProfile();
       toast.success("Subagent account activated successfully");
-      navigate("/my-store");
+      navigate("/dashboard");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Payment failed";
       if (message !== "Payment cancelled") toast.error(message);
@@ -388,6 +396,12 @@ export default function SubAgentSignup() {
                   {authLoading && <Loader2 className="h-4 w-4 animate-spin" />}
                   {authMode === "signup" ? "Create Account and Continue" : "Sign In and Continue"}
                 </Button>
+                <p className="text-xs text-muted-foreground text-center pt-1">
+                  Already activated as a subagent?{" "}
+                  <Link to={`/store/${slug}/subagent-login`} className="text-primary font-medium hover:underline">
+                    Sign in here
+                  </Link>
+                </p>
               </div>
             </div>
           )}

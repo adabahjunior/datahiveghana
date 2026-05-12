@@ -449,9 +449,14 @@ export default function PublicStore() {
                 Final signup fee: <span className="font-semibold text-foreground">{formatGHS(subAgentBaseFee + Number(store.subagent_fee_addon || 0))}</span>
               </p>
             </div>
-            <Button asChild className="store-pulse">
-              <Link to={`/store/${store.slug}/subagent-program`}>View Subagent Program</Link>
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button asChild className="store-pulse">
+                <Link to={`/store/${store.slug}/subagent-program`}>View Subagent Program</Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link to={`/store/${store.slug}/subagent-login`}>Subagent Login</Link>
+              </Button>
+            </div>
           </div>
         </Card>
 

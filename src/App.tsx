@@ -28,6 +28,7 @@ import Report from "./pages/Report";
 import Settings from "./pages/Settings";
 import PublicStore from "./pages/PublicStore";
 import SubAgentSignup from "./pages/SubAgentSignup";
+import SubAgentLogin from "./pages/SubAgentLogin";
 import NotFound from "./pages/NotFound";
 import AdminLayout from "./components/admin/AdminLayout";
 import AdminOverviewPage from "./pages/admin/AdminOverviewPage";
@@ -74,6 +75,7 @@ const App = () => (
               <Route path="/store/:slug" element={<MaintenanceGate><PublicStore /></MaintenanceGate>} />
               <Route path="/store/:slug/subagent-program" element={<MaintenanceGate><SubAgentSignup /></MaintenanceGate>} />
               <Route path="/store/:slug/subagent" element={<MaintenanceGate><SubAgentSignup /></MaintenanceGate>} />
+              <Route path="/store/:slug/subagent-login" element={<MaintenanceGate><SubAgentLogin /></MaintenanceGate>} />
 
               <Route path="/dashboard" element={<Shell><Dashboard /></Shell>} />
               <Route path="/wallet" element={<Shell><Wallet /></Shell>} />
