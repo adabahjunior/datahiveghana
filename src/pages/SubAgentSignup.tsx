@@ -396,6 +396,12 @@ export default function SubAgentSignup() {
                   {authLoading && <Loader2 className="h-4 w-4 animate-spin" />}
                   {authMode === "signup" ? "Create Account and Continue" : "Sign In and Continue"}
                 </Button>
+                <p className="text-xs text-muted-foreground text-center pt-1">
+                  Already activated as a subagent?{" "}
+                  <Link to={`/store/${slug}/subagent-login`} className="text-primary font-medium hover:underline">
+                    Sign in here
+                  </Link>
+                </p>
               </div>
             </div>
           )}
