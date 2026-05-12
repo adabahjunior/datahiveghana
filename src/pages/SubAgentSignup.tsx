@@ -132,6 +132,42 @@ export default function SubAgentSignup() {
     }
   }, [isSubAgent, store, navigate]);
 
+  // After signed-in user lands here, ensure a pending assignment exists for this store
+  useEffect(() => {
+    if (!user || !store || isSubAgent) return;
+    if (store.agent_id === user.id) return;
+    (async () => {
+      const { data: existing } = await supabase
+        .from("subagent_assignments")
+        .select("*")
+        .eq("subagent_user_id", user.id)
+        .maybeSingle();
+
+      if (existing) {
+        setPendingAssignment(existing);
+        if (existing.status === "active") {
+          navigate("/dashboard");
+        }
+        return;
+      }
+
+      const { data: created, error } = await supabase
+        .from("subagent_assignments")
+        .insert({
+          parent_agent_id: store.agent_id,
+          subagent_user_id: user.id,
+          source_store_id: store.id,
+          paid_amount: 0,
+          paid_via: "pending",
+          status: "pending",
+        })
+        .select()
+        .maybeSingle();
+
+      if (!error && created) setPendingAssignment(created);
+    })();
+  }, [user, store, isSubAgent, navigate]);
+
   const blockedReason = useMemo(() => {
     if (!store) return "Store not found";
     if (!store.is_active) return "This store is currently inactive";
