@@ -231,7 +231,7 @@ export default function SubAgentSignup() {
 
     await refreshProfile();
     toast.success("Subagent account activated successfully");
-    navigate("/my-store");
+    navigate("/dashboard");
   };
 
   const activateViaPaystack = async () => {
@@ -269,7 +269,7 @@ export default function SubAgentSignup() {
 
       await refreshProfile();
       toast.success("Subagent account activated successfully");
-      navigate("/my-store");
+      navigate("/dashboard");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Payment failed";
       if (message !== "Payment cancelled") toast.error(message);
