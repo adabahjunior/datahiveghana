@@ -123,6 +123,14 @@ export default function SubAgentSignup() {
   const totalFee = subagentBaseFee + addon;
   const paystackTotal = totalFee + calcPaystackCharge(totalFee);
 
+  // If user is already a subagent, send them straight to their dashboard
+  useEffect(() => {
+    if (isSubAgent && store) {
+      toast.success("You're already a subagent. Redirecting to dashboard.");
+      navigate("/dashboard");
+    }
+  }, [isSubAgent, store, navigate]);
+
   const blockedReason = useMemo(() => {
     if (!store) return "Store not found";
     if (!store.is_active) return "This store is currently inactive";
