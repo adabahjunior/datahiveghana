@@ -39,6 +39,7 @@ export default function SubAgentSignup() {
   const [storeMissing, setStoreMissing] = useState(false);
   const [subagentFeeEnabled, setSubagentFeeEnabled] = useState(true);
   const [subagentBaseFee, setSubagentBaseFee] = useState(SUBAGENT_BASE_FEE);
+  const [pendingAssignment, setPendingAssignment] = useState<any>(null);
 
   useEffect(() => {
     if (!slug) {
