@@ -71,6 +71,129 @@ export type Database = {
         }
         Relationships: []
       }
+      checker_orders: {
+        Row: {
+          agent_profit: number
+          amount_paid: number
+          buyer_user_id: string | null
+          checker_codes: Json | null
+          checker_id: string
+          checker_pin: string | null
+          checker_serial: string | null
+          cost_price: number
+          created_at: string
+          exam_type: string
+          id: string
+          notes: string | null
+          paid_via: string
+          paystack_reference: string | null
+          quantity: number
+          recipient_phone: string
+          seller_profit: number
+          status: Database["public"]["Enums"]["order_status"]
+          store_id: string | null
+          updated_at: string
+          upstream_agent_profit: number
+        }
+        Insert: {
+          agent_profit?: number
+          amount_paid: number
+          buyer_user_id?: string | null
+          checker_codes?: Json | null
+          checker_id: string
+          checker_pin?: string | null
+          checker_serial?: string | null
+          cost_price: number
+          created_at?: string
+          exam_type: string
+          id?: string
+          notes?: string | null
+          paid_via?: string
+          paystack_reference?: string | null
+          quantity?: number
+          recipient_phone: string
+          seller_profit?: number
+          status?: Database["public"]["Enums"]["order_status"]
+          store_id?: string | null
+          updated_at?: string
+          upstream_agent_profit?: number
+        }
+        Update: {
+          agent_profit?: number
+          amount_paid?: number
+          buyer_user_id?: string | null
+          checker_codes?: Json | null
+          checker_id?: string
+          checker_pin?: string | null
+          checker_serial?: string | null
+          cost_price?: number
+          created_at?: string
+          exam_type?: string
+          id?: string
+          notes?: string | null
+          paid_via?: string
+          paystack_reference?: string | null
+          quantity?: number
+          recipient_phone?: string
+          seller_profit?: number
+          status?: Database["public"]["Enums"]["order_status"]
+          store_id?: string | null
+          updated_at?: string
+          upstream_agent_profit?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checker_orders_checker_id_fkey"
+            columns: ["checker_id"]
+            isOneToOne: false
+            referencedRelation: "checker_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checker_orders_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "agent_stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      checker_products: {
+        Row: {
+          agent_price: number
+          created_at: string
+          display_order: number
+          exam_type: string
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+          user_price: number
+        }
+        Insert: {
+          agent_price: number
+          created_at?: string
+          display_order?: number
+          exam_type: string
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+          user_price: number
+        }
+        Update: {
+          agent_price?: number
+          created_at?: string
+          display_order?: number
+          exam_type?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+          user_price?: number
+        }
+        Relationships: []
+      }
       data_packages: {
         Row: {
           agent_price: number
@@ -283,6 +406,51 @@ export type Database = {
         }
         Relationships: []
       }
+      store_checker_prices: {
+        Row: {
+          checker_id: string
+          created_at: string
+          id: string
+          is_listed: boolean
+          selling_price: number
+          store_id: string
+          updated_at: string
+        }
+        Insert: {
+          checker_id: string
+          created_at?: string
+          id?: string
+          is_listed?: boolean
+          selling_price: number
+          store_id: string
+          updated_at?: string
+        }
+        Update: {
+          checker_id?: string
+          created_at?: string
+          id?: string
+          is_listed?: boolean
+          selling_price?: number
+          store_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "store_checker_prices_checker_id_fkey"
+            columns: ["checker_id"]
+            isOneToOne: false
+            referencedRelation: "checker_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "store_checker_prices_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "agent_stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       store_package_prices: {
         Row: {
           created_at: string
@@ -321,6 +489,136 @@ export type Database = {
           },
           {
             foreignKeyName: "store_package_prices_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "agent_stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      store_university_form_orders: {
+        Row: {
+          amount_paid: number
+          cost_price: number
+          created_at: string
+          email: string
+          form_type_id: string
+          form_type_name: string
+          full_name: string
+          id: string
+          notes: string | null
+          paid_via: string
+          paystack_reference: string | null
+          phone: string
+          school_id: string
+          school_name: string
+          seller_profit: number
+          status: Database["public"]["Enums"]["order_status"]
+          store_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount_paid: number
+          cost_price: number
+          created_at?: string
+          email: string
+          form_type_id: string
+          form_type_name: string
+          full_name: string
+          id?: string
+          notes?: string | null
+          paid_via?: string
+          paystack_reference?: string | null
+          phone: string
+          school_id: string
+          school_name: string
+          seller_profit?: number
+          status?: Database["public"]["Enums"]["order_status"]
+          store_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount_paid?: number
+          cost_price?: number
+          created_at?: string
+          email?: string
+          form_type_id?: string
+          form_type_name?: string
+          full_name?: string
+          id?: string
+          notes?: string | null
+          paid_via?: string
+          paystack_reference?: string | null
+          phone?: string
+          school_id?: string
+          school_name?: string
+          seller_profit?: number
+          status?: Database["public"]["Enums"]["order_status"]
+          store_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "store_university_form_orders_form_type_id_fkey"
+            columns: ["form_type_id"]
+            isOneToOne: false
+            referencedRelation: "university_form_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "store_university_form_orders_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "university_schools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "store_university_form_orders_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "agent_stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      store_university_form_prices: {
+        Row: {
+          created_at: string
+          form_type_id: string
+          id: string
+          is_listed: boolean
+          selling_price: number
+          store_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          form_type_id: string
+          id?: string
+          is_listed?: boolean
+          selling_price: number
+          store_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          form_type_id?: string
+          id?: string
+          is_listed?: boolean
+          selling_price?: number
+          store_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "store_university_form_prices_form_type_id_fkey"
+            columns: ["form_type_id"]
+            isOneToOne: false
+            referencedRelation: "university_form_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "store_university_form_prices_store_id_fkey"
             columns: ["store_id"]
             isOneToOne: false
             referencedRelation: "agent_stores"
@@ -368,6 +666,44 @@ export type Database = {
             columns: ["source_store_id"]
             isOneToOne: false
             referencedRelation: "agent_stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subagent_checker_prices: {
+        Row: {
+          base_price: number
+          checker_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          parent_agent_id: string
+          updated_at: string
+        }
+        Insert: {
+          base_price: number
+          checker_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          parent_agent_id: string
+          updated_at?: string
+        }
+        Update: {
+          base_price?: number
+          checker_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          parent_agent_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subagent_checker_prices_checker_id_fkey"
+            columns: ["checker_id"]
+            isOneToOne: false
+            referencedRelation: "checker_products"
             referencedColumns: ["id"]
           },
         ]
@@ -456,6 +792,131 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      university_form_orders: {
+        Row: {
+          amount_paid: number
+          created_at: string
+          email: string
+          form_type_id: string
+          form_type_name: string
+          full_name: string
+          id: string
+          phone: string
+          reference: string
+          school_id: string
+          school_name: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          amount_paid: number
+          created_at?: string
+          email: string
+          form_type_id: string
+          form_type_name: string
+          full_name: string
+          id?: string
+          phone: string
+          reference: string
+          school_id: string
+          school_name: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          amount_paid?: number
+          created_at?: string
+          email?: string
+          form_type_id?: string
+          form_type_name?: string
+          full_name?: string
+          id?: string
+          phone?: string
+          reference?: string
+          school_id?: string
+          school_name?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "university_form_orders_form_type_id_fkey"
+            columns: ["form_type_id"]
+            isOneToOne: false
+            referencedRelation: "university_form_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "university_form_orders_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "university_schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      university_form_types: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          price: number
+          school_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          price?: number
+          school_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          price?: number
+          school_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "university_form_types_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "university_schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      university_schools: {
+        Row: {
+          created_at: string
+          description: string | null
+          display_order: number
+          id: string
+          is_published: boolean
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_published?: boolean
+          name: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_published?: boolean
+          name?: string
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {
