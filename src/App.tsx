@@ -35,6 +35,7 @@ import AdminOverviewPage from "./pages/admin/AdminOverviewPage";
 import AdminOrdersPage from "./pages/admin/AdminOrdersPage";
 import AdminCheckerOrdersPage from "./pages/admin/AdminCheckerOrdersPage";
 import AdminAgentsPage from "./pages/admin/AdminAgentsPage";
+import AdminSubAgentsPage from "./pages/admin/AdminSubAgentsPage";
 import AdminUsersPage from "./pages/admin/AdminUsersPage";
 import AdminWithdrawalsPage from "./pages/admin/AdminWithdrawalsPage";
 import AdminPricingPage from "./pages/admin/AdminPricingPage";
@@ -97,6 +98,7 @@ const App = () => (
                 <Route path="orders" element={<AdminOrdersPage />} />
                 <Route path="checker-orders" element={<AdminCheckerOrdersPage />} />
                 <Route path="agents" element={<AdminAgentsPage />} />
+                <Route path="subagents" element={<AdminSubAgentsPage />} />
                 <Route path="users" element={<AdminUsersPage />} />
                 <Route path="withdrawals" element={<AdminWithdrawalsPage />} />
                 <Route path="pricing" element={<AdminPricingPage />} />
