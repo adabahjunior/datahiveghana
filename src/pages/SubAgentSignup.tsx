@@ -443,6 +443,16 @@ export default function SubAgentSignup() {
             </div>
           )}
 
+          {user && pendingAssignment?.status === "pending" && (
+            <div className="rounded-lg border border-primary/40 bg-primary/5 p-4 mb-6 text-center max-w-lg mx-auto">
+              <p className="text-sm font-semibold">Account created — awaiting activation</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Pay the activation fee below to unlock your dashboard now, or wait for an admin to approve your account
+                (admin approval activates you for free).
+              </p>
+            </div>
+          )}
+
           {!canActivate ? (
             <p className="text-sm text-muted-foreground text-center">{blockedReason}</p>
           ) : totalFee === 0 ? (
