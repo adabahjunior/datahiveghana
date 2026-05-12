@@ -10,6 +10,7 @@ const navItems = [
   { to: "/admin/orders", label: "Orders", icon: ShoppingCart },
   { to: "/admin/checker-orders", label: "Checker Orders", icon: Package },
   { to: "/admin/agents", label: "Agents", icon: Users },
+  { to: "/admin/subagents", label: "Subagents", icon: Users },
   { to: "/admin/users", label: "Users", icon: Users },
   { to: "/admin/withdrawals", label: "Withdrawals", icon: Wallet },
   { to: "/admin/pricing", label: "Pricing", icon: CreditCard },

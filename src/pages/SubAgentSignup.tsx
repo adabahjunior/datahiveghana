@@ -39,6 +39,7 @@ export default function SubAgentSignup() {
   const [storeMissing, setStoreMissing] = useState(false);
   const [subagentFeeEnabled, setSubagentFeeEnabled] = useState(true);
   const [subagentBaseFee, setSubagentBaseFee] = useState(SUBAGENT_BASE_FEE);
+  const [pendingAssignment, setPendingAssignment] = useState<any>(null);
 
   useEffect(() => {
     if (!slug) {
@@ -130,6 +131,42 @@ export default function SubAgentSignup() {
       navigate("/dashboard");
     }
   }, [isSubAgent, store, navigate]);
+
+  // After signed-in user lands here, ensure a pending assignment exists for this store
+  useEffect(() => {
+    if (!user || !store || isSubAgent) return;
+    if (store.agent_id === user.id) return;
+    (async () => {
+      const { data: existing } = await supabase
+        .from("subagent_assignments")
+        .select("*")
+        .eq("subagent_user_id", user.id)
+        .maybeSingle();
+
+      if (existing) {
+        setPendingAssignment(existing);
+        if (existing.status === "active") {
+          navigate("/dashboard");
+        }
+        return;
+      }
+
+      const { data: created, error } = await supabase
+        .from("subagent_assignments")
+        .insert({
+          parent_agent_id: store.agent_id,
+          subagent_user_id: user.id,
+          source_store_id: store.id,
+          paid_amount: 0,
+          paid_via: "pending",
+          status: "pending",
+        })
+        .select()
+        .maybeSingle();
+
+      if (!error && created) setPendingAssignment(created);
+    })();
+  }, [user, store, isSubAgent, navigate]);
 
   const blockedReason = useMemo(() => {
     if (!store) return "Store not found";
@@ -403,6 +440,16 @@ export default function SubAgentSignup() {
                   </Link>
                 </p>
               </div>
+            </div>
+          )}
+
+          {user && pendingAssignment?.status === "pending" && (
+            <div className="rounded-lg border border-primary/40 bg-primary/5 p-4 mb-6 text-center max-w-lg mx-auto">
+              <p className="text-sm font-semibold">Account created — awaiting activation</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Pay the activation fee below to unlock your dashboard now, or wait for an admin to approve your account
+                (admin approval activates you for free).
+              </p>
             </div>
           )}
 
