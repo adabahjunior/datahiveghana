@@ -451,9 +451,12 @@ export default function PublicStore() {
             </div>
             <div className="flex flex-col sm:flex-row gap-2">
               <Button asChild className="store-pulse">
-                <Link to={`/store/${store.slug}/subagent-program`}>View Subagent Program</Link>
+                <Link to={`/store/${store.slug}/subagent-program`}>Sign Up as Subagent</Link>
               </Button>
               <Button asChild variant="outline">
+                <Link to={`/store/${store.slug}/subagent-program`}>View Program</Link>
+              </Button>
+              <Button asChild variant="ghost">
                 <Link to={`/store/${store.slug}/subagent-login`}>Subagent Login</Link>
               </Button>
             </div>

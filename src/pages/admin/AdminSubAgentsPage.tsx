@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { PageHeader } from "@/components/PageHeader";
 import { formatGHS, formatDateTime } from "@/lib/format";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs as InnerTabs, TabsContent as InnerTabsContent, TabsList as InnerTabsList, TabsTrigger as InnerTabsTrigger } from "@/components/ui/tabs";
 
 type Row = {
   id: string;
@@ -24,10 +29,29 @@ type Row = {
   store?: { store_name: string; slug: string } | null;
 };
 
+type AgentOption = { user_id: string; full_name: string | null; email: string };
+type StoreOption = { id: string; agent_id: string; store_name: string };
+
 export default function AdminSubAgentsPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [agents, setAgents] = useState<AgentOption[]>([]);
+  const [stores, setStores] = useState<StoreOption[]>([]);
+  const [addOpen, setAddOpen] = useState(false);
+  const [addMode, setAddMode] = useState<"create" | "promote">("create");
+  const [addBusy, setAddBusy] = useState(false);
+  // create form
+  const [cEmail, setCEmail] = useState("");
+  const [cPassword, setCPassword] = useState("");
+  const [cFullName, setCFullName] = useState("");
+  const [cPhone, setCPhone] = useState("");
+  const [cParent, setCParent] = useState("");
+  const [cStore, setCStore] = useState("");
+  // promote form
+  const [pEmail, setPEmail] = useState("");
+  const [pParent, setPParent] = useState("");
+  const [pStore, setPStore] = useState("");
 
   const load = async () => {
     setLoading(true);
@@ -63,7 +87,59 @@ export default function AdminSubAgentsPage() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  const loadAgents = async () => {
+    const { data: agentRoles } = await supabase.from("user_roles").select("user_id").eq("role", "agent");
+    const ids = (agentRoles || []).map((r: any) => r.user_id);
+    if (ids.length === 0) { setAgents([]); setStores([]); return; }
+    const [{ data: profs }, { data: strs }] = await Promise.all([
+      supabase.from("profiles").select("user_id,full_name,email").in("user_id", ids),
+      supabase.from("agent_stores").select("id,agent_id,store_name").in("agent_id", ids),
+    ]);
+    setAgents((profs || []) as AgentOption[]);
+    setStores((strs || []) as StoreOption[]);
+  };
+
+  useEffect(() => { load(); loadAgents(); }, []);
+
+  const filteredCreateStores = useMemo(() => stores.filter((s) => s.agent_id === cParent), [stores, cParent]);
+  const filteredPromoteStores = useMemo(() => stores.filter((s) => s.agent_id === pParent), [stores, pParent]);
+
+  const submitCreate = async () => {
+    if (!cEmail || !cPassword || !cParent) { toast.error("Email, password and parent agent are required"); return; }
+    setAddBusy(true);
+    const { data, error } = await supabase.functions.invoke("admin-manage-subagent", {
+      body: {
+        action: "create_account",
+        email: cEmail, password: cPassword, full_name: cFullName, phone: cPhone,
+        parent_agent_id: cParent, source_store_id: cStore || null,
+      },
+    });
+    setAddBusy(false);
+    if (error || !data?.success) { toast.error(data?.error || error?.message || "Failed"); return; }
+    toast.success("Subagent account created and activated");
+    setCEmail(""); setCPassword(""); setCFullName(""); setCPhone(""); setCParent(""); setCStore("");
+    setAddOpen(false);
+    load();
+  };
+
+  const submitPromote = async () => {
+    if (!pEmail || !pParent) { toast.error("User email and parent agent are required"); return; }
+    setAddBusy(true);
+    const { data: prof } = await supabase.from("profiles").select("user_id").eq("email", pEmail.trim()).maybeSingle();
+    if (!prof?.user_id) { setAddBusy(false); toast.error("No user found with that email"); return; }
+    const { data, error } = await supabase.functions.invoke("admin-manage-subagent", {
+      body: {
+        action: "promote_user",
+        subagent_user_id: prof.user_id, parent_agent_id: pParent, source_store_id: pStore || null,
+      },
+    });
+    setAddBusy(false);
+    if (error || !data?.success) { toast.error(data?.error || error?.message || "Failed"); return; }
+    toast.success("User promoted to subagent");
+    setPEmail(""); setPParent(""); setPStore("");
+    setAddOpen(false);
+    load();
+  };
 
   const act = async (id: string, action: "approve" | "revoke" | "reject") => {
     setBusyId(id);
@@ -147,7 +223,84 @@ export default function AdminSubAgentsPage() {
 
   return (
     <div className="animate-fade-in">
-      <PageHeader title="Subagents" description="Approve subagent accounts and override activation payment." />
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <PageHeader title="Subagents" description="Approve subagent accounts and override activation payment." />
+        <Dialog open={addOpen} onOpenChange={setAddOpen}>
+          <DialogTrigger asChild>
+            <Button><Plus className="h-4 w-4 mr-1" /> Add Subagent</Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-lg">
+            <DialogHeader><DialogTitle>Add Subagent (bypasses activation fee)</DialogTitle></DialogHeader>
+            <InnerTabs value={addMode} onValueChange={(v) => setAddMode(v as any)}>
+              <InnerTabsList className="grid grid-cols-2 mb-4">
+                <InnerTabsTrigger value="create">Create New Account</InnerTabsTrigger>
+                <InnerTabsTrigger value="promote">Promote Existing User</InnerTabsTrigger>
+              </InnerTabsList>
+              <InnerTabsContent value="create" className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5"><Label>Full Name</Label><Input value={cFullName} onChange={(e) => setCFullName(e.target.value)} /></div>
+                  <div className="space-y-1.5"><Label>Phone</Label><Input value={cPhone} onChange={(e) => setCPhone(e.target.value)} /></div>
+                </div>
+                <div className="space-y-1.5"><Label>Email *</Label><Input type="email" value={cEmail} onChange={(e) => setCEmail(e.target.value)} /></div>
+                <div className="space-y-1.5"><Label>Password *</Label><Input type="text" value={cPassword} onChange={(e) => setCPassword(e.target.value)} placeholder="Min 6 characters" /></div>
+                <div className="space-y-1.5">
+                  <Label>Parent Agent *</Label>
+                  <Select value={cParent} onValueChange={(v) => { setCParent(v); setCStore(""); }}>
+                    <SelectTrigger><SelectValue placeholder="Select agent" /></SelectTrigger>
+                    <SelectContent>
+                      {agents.map((a) => (<SelectItem key={a.user_id} value={a.user_id}>{a.full_name || a.email}</SelectItem>))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {cParent && filteredCreateStores.length > 0 && (
+                  <div className="space-y-1.5">
+                    <Label>Source Store (optional)</Label>
+                    <Select value={cStore} onValueChange={setCStore}>
+                      <SelectTrigger><SelectValue placeholder="Select store" /></SelectTrigger>
+                      <SelectContent>
+                        {filteredCreateStores.map((s) => (<SelectItem key={s.id} value={s.id}>{s.store_name}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                <DialogFooter>
+                  <Button onClick={submitCreate} disabled={addBusy}>
+                    {addBusy && <Loader2 className="h-4 w-4 animate-spin mr-1" />} Create & Activate
+                  </Button>
+                </DialogFooter>
+              </InnerTabsContent>
+              <InnerTabsContent value="promote" className="space-y-3">
+                <div className="space-y-1.5"><Label>User Email *</Label><Input type="email" value={pEmail} onChange={(e) => setPEmail(e.target.value)} placeholder="Existing user's email" /></div>
+                <div className="space-y-1.5">
+                  <Label>Parent Agent *</Label>
+                  <Select value={pParent} onValueChange={(v) => { setPParent(v); setPStore(""); }}>
+                    <SelectTrigger><SelectValue placeholder="Select agent" /></SelectTrigger>
+                    <SelectContent>
+                      {agents.map((a) => (<SelectItem key={a.user_id} value={a.user_id}>{a.full_name || a.email}</SelectItem>))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {pParent && filteredPromoteStores.length > 0 && (
+                  <div className="space-y-1.5">
+                    <Label>Source Store (optional)</Label>
+                    <Select value={pStore} onValueChange={setPStore}>
+                      <SelectTrigger><SelectValue placeholder="Select store" /></SelectTrigger>
+                      <SelectContent>
+                        {filteredPromoteStores.map((s) => (<SelectItem key={s.id} value={s.id}>{s.store_name}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                <DialogFooter>
+                  <Button onClick={submitPromote} disabled={addBusy}>
+                    {addBusy && <Loader2 className="h-4 w-4 animate-spin mr-1" />} Promote to Subagent
+                  </Button>
+                </DialogFooter>
+              </InnerTabsContent>
+            </InnerTabs>
+          </DialogContent>
+        </Dialog>
+      </div>
       {loading ? (
         <div className="py-12 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></div>
       ) : (
