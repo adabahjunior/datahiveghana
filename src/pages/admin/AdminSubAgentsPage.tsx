@@ -223,7 +223,84 @@ export default function AdminSubAgentsPage() {
 
   return (
     <div className="animate-fade-in">
-      <PageHeader title="Subagents" description="Approve subagent accounts and override activation payment." />
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <PageHeader title="Subagents" description="Approve subagent accounts and override activation payment." />
+        <Dialog open={addOpen} onOpenChange={setAddOpen}>
+          <DialogTrigger asChild>
+            <Button><Plus className="h-4 w-4 mr-1" /> Add Subagent</Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-lg">
+            <DialogHeader><DialogTitle>Add Subagent (bypasses activation fee)</DialogTitle></DialogHeader>
+            <InnerTabs value={addMode} onValueChange={(v) => setAddMode(v as any)}>
+              <InnerTabsList className="grid grid-cols-2 mb-4">
+                <InnerTabsTrigger value="create">Create New Account</InnerTabsTrigger>
+                <InnerTabsTrigger value="promote">Promote Existing User</InnerTabsTrigger>
+              </InnerTabsList>
+              <InnerTabsContent value="create" className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5"><Label>Full Name</Label><Input value={cFullName} onChange={(e) => setCFullName(e.target.value)} /></div>
+                  <div className="space-y-1.5"><Label>Phone</Label><Input value={cPhone} onChange={(e) => setCPhone(e.target.value)} /></div>
+                </div>
+                <div className="space-y-1.5"><Label>Email *</Label><Input type="email" value={cEmail} onChange={(e) => setCEmail(e.target.value)} /></div>
+                <div className="space-y-1.5"><Label>Password *</Label><Input type="text" value={cPassword} onChange={(e) => setCPassword(e.target.value)} placeholder="Min 6 characters" /></div>
+                <div className="space-y-1.5">
+                  <Label>Parent Agent *</Label>
+                  <Select value={cParent} onValueChange={(v) => { setCParent(v); setCStore(""); }}>
+                    <SelectTrigger><SelectValue placeholder="Select agent" /></SelectTrigger>
+                    <SelectContent>
+                      {agents.map((a) => (<SelectItem key={a.user_id} value={a.user_id}>{a.full_name || a.email}</SelectItem>))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {cParent && filteredCreateStores.length > 0 && (
+                  <div className="space-y-1.5">
+                    <Label>Source Store (optional)</Label>
+                    <Select value={cStore} onValueChange={setCStore}>
+                      <SelectTrigger><SelectValue placeholder="Select store" /></SelectTrigger>
+                      <SelectContent>
+                        {filteredCreateStores.map((s) => (<SelectItem key={s.id} value={s.id}>{s.store_name}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                <DialogFooter>
+                  <Button onClick={submitCreate} disabled={addBusy}>
+                    {addBusy && <Loader2 className="h-4 w-4 animate-spin mr-1" />} Create & Activate
+                  </Button>
+                </DialogFooter>
+              </InnerTabsContent>
+              <InnerTabsContent value="promote" className="space-y-3">
+                <div className="space-y-1.5"><Label>User Email *</Label><Input type="email" value={pEmail} onChange={(e) => setPEmail(e.target.value)} placeholder="Existing user's email" /></div>
+                <div className="space-y-1.5">
+                  <Label>Parent Agent *</Label>
+                  <Select value={pParent} onValueChange={(v) => { setPParent(v); setPStore(""); }}>
+                    <SelectTrigger><SelectValue placeholder="Select agent" /></SelectTrigger>
+                    <SelectContent>
+                      {agents.map((a) => (<SelectItem key={a.user_id} value={a.user_id}>{a.full_name || a.email}</SelectItem>))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {pParent && filteredPromoteStores.length > 0 && (
+                  <div className="space-y-1.5">
+                    <Label>Source Store (optional)</Label>
+                    <Select value={pStore} onValueChange={setPStore}>
+                      <SelectTrigger><SelectValue placeholder="Select store" /></SelectTrigger>
+                      <SelectContent>
+                        {filteredPromoteStores.map((s) => (<SelectItem key={s.id} value={s.id}>{s.store_name}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                <DialogFooter>
+                  <Button onClick={submitPromote} disabled={addBusy}>
+                    {addBusy && <Loader2 className="h-4 w-4 animate-spin mr-1" />} Promote to Subagent
+                  </Button>
+                </DialogFooter>
+              </InnerTabsContent>
+            </InnerTabs>
+          </DialogContent>
+        </Dialog>
+      </div>
       {loading ? (
         <div className="py-12 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></div>
       ) : (
