@@ -29,10 +29,29 @@ type Row = {
   store?: { store_name: string; slug: string } | null;
 };
 
+type AgentOption = { user_id: string; full_name: string | null; email: string };
+type StoreOption = { id: string; agent_id: string; store_name: string };
+
 export default function AdminSubAgentsPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [agents, setAgents] = useState<AgentOption[]>([]);
+  const [stores, setStores] = useState<StoreOption[]>([]);
+  const [addOpen, setAddOpen] = useState(false);
+  const [addMode, setAddMode] = useState<"create" | "promote">("create");
+  const [addBusy, setAddBusy] = useState(false);
+  // create form
+  const [cEmail, setCEmail] = useState("");
+  const [cPassword, setCPassword] = useState("");
+  const [cFullName, setCFullName] = useState("");
+  const [cPhone, setCPhone] = useState("");
+  const [cParent, setCParent] = useState("");
+  const [cStore, setCStore] = useState("");
+  // promote form
+  const [pEmail, setPEmail] = useState("");
+  const [pParent, setPParent] = useState("");
+  const [pStore, setPStore] = useState("");
 
   const load = async () => {
     setLoading(true);
