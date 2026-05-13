@@ -87,7 +87,59 @@ export default function AdminSubAgentsPage() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  const loadAgents = async () => {
+    const { data: agentRoles } = await supabase.from("user_roles").select("user_id").eq("role", "agent");
+    const ids = (agentRoles || []).map((r: any) => r.user_id);
+    if (ids.length === 0) { setAgents([]); setStores([]); return; }
+    const [{ data: profs }, { data: strs }] = await Promise.all([
+      supabase.from("profiles").select("user_id,full_name,email").in("user_id", ids),
+      supabase.from("agent_stores").select("id,agent_id,store_name").in("agent_id", ids),
+    ]);
+    setAgents((profs || []) as AgentOption[]);
+    setStores((strs || []) as StoreOption[]);
+  };
+
+  useEffect(() => { load(); loadAgents(); }, []);
+
+  const filteredCreateStores = useMemo(() => stores.filter((s) => s.agent_id === cParent), [stores, cParent]);
+  const filteredPromoteStores = useMemo(() => stores.filter((s) => s.agent_id === pParent), [stores, pParent]);
+
+  const submitCreate = async () => {
+    if (!cEmail || !cPassword || !cParent) { toast.error("Email, password and parent agent are required"); return; }
+    setAddBusy(true);
+    const { data, error } = await supabase.functions.invoke("admin-manage-subagent", {
+      body: {
+        action: "create_account",
+        email: cEmail, password: cPassword, full_name: cFullName, phone: cPhone,
+        parent_agent_id: cParent, source_store_id: cStore || null,
+      },
+    });
+    setAddBusy(false);
+    if (error || !data?.success) { toast.error(data?.error || error?.message || "Failed"); return; }
+    toast.success("Subagent account created and activated");
+    setCEmail(""); setCPassword(""); setCFullName(""); setCPhone(""); setCParent(""); setCStore("");
+    setAddOpen(false);
+    load();
+  };
+
+  const submitPromote = async () => {
+    if (!pEmail || !pParent) { toast.error("User email and parent agent are required"); return; }
+    setAddBusy(true);
+    const { data: prof } = await supabase.from("profiles").select("user_id").eq("email", pEmail.trim()).maybeSingle();
+    if (!prof?.user_id) { setAddBusy(false); toast.error("No user found with that email"); return; }
+    const { data, error } = await supabase.functions.invoke("admin-manage-subagent", {
+      body: {
+        action: "promote_user",
+        subagent_user_id: prof.user_id, parent_agent_id: pParent, source_store_id: pStore || null,
+      },
+    });
+    setAddBusy(false);
+    if (error || !data?.success) { toast.error(data?.error || error?.message || "Failed"); return; }
+    toast.success("User promoted to subagent");
+    setPEmail(""); setPParent(""); setPStore("");
+    setAddOpen(false);
+    load();
+  };
 
   const act = async (id: string, action: "approve" | "revoke" | "reject") => {
     setBusyId(id);
