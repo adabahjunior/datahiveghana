@@ -9,10 +9,16 @@ import { PageHeader } from "@/components/PageHeader";
 import { formatGHS, calcPaystackCharge } from "@/lib/format";
 import { startPaystackCheckout } from "@/lib/paystack";
 import { toast } from "sonner";
-import { Wallet as WalletIcon, Loader2, Info } from "lucide-react";
+import { Wallet as WalletIcon, Loader2, Info, Copy, Landmark } from "lucide-react";
+
+const manualTopUpDetails = {
+  number: "0538973984",
+  name: "Jeff Gyamfi Boakye",
+  network: "MTN",
+};
 
 export default function Wallet() {
-  const { profile, refreshProfile } = useAuth();
+  const { profile, refreshProfile, isSubAgent } = useAuth();
   const [amount, setAmount] = useState("");
   const [recoveryReference, setRecoveryReference] = useState("");
   const [recoveryAmount, setRecoveryAmount] = useState("");
@@ -23,6 +29,16 @@ export default function Wallet() {
   const numAmount = parseFloat(amount) || 0;
   const charge = numAmount > 0 ? calcPaystackCharge(numAmount) : 0;
   const total = numAmount + charge;
+
+  const copyManualCode = async () => {
+    if (!profile?.manual_topup_code) return;
+    try {
+      await navigator.clipboard.writeText(profile.manual_topup_code);
+      toast.success("Manual top-up code copied");
+    } catch {
+      toast.error("Unable to copy code right now");
+    }
+  };
 
   const handleTopUp = async () => {
     if (numAmount < 1) { toast.error("Enter a valid amount"); return; }
@@ -107,7 +123,48 @@ export default function Wallet() {
           <p className="text-4xl font-bold mt-2">{formatGHS(profile?.wallet_balance || 0)}</p>
         </Card>
 
-        <Card className="lg:col-span-2 p-8">
+        <Card className="lg:col-span-2 p-8 border-primary/20 bg-primary/5">
+          <div className="flex items-start gap-3">
+            <div className="h-11 w-11 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+              <Landmark className="h-5 w-5" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-bold text-lg">Manual Wallet Top-up</h3>
+              {isSubAgent ? (
+                <p className="text-sm text-muted-foreground mt-1">
+                  Manual top-up is not available for subagent accounts.
+                </p>
+              ) : (
+                <>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Send your payment with the details below and use your 4-digit code as the transfer reference. Admin will credit this same wallet after confirming payment.
+                  </p>
+                  <div className="grid sm:grid-cols-2 gap-4 mt-5 text-sm">
+                    <div className="rounded-lg border border-border bg-background p-4 space-y-2">
+                      <div className="flex justify-between gap-4"><span className="text-muted-foreground">Number</span><span className="font-semibold">{manualTopUpDetails.number}</span></div>
+                      <div className="flex justify-between gap-4"><span className="text-muted-foreground">Name</span><span className="font-semibold text-right">{manualTopUpDetails.name}</span></div>
+                      <div className="flex justify-between gap-4"><span className="text-muted-foreground">Network</span><span className="font-semibold">{manualTopUpDetails.network}</span></div>
+                    </div>
+                    <div className="rounded-lg border border-border bg-background p-4">
+                      <p className="text-xs uppercase tracking-wider text-muted-foreground">Your reference code</p>
+                      <div className="flex items-center gap-3 mt-3">
+                        <p className="text-3xl font-bold tracking-[0.3em]">{profile?.manual_topup_code || "----"}</p>
+                        <Button type="button" variant="outline" size="icon" onClick={copyManualCode} disabled={!profile?.manual_topup_code}>
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-3">
+                        Always include this exact code in the payment reference so admin can find and top up your wallet quickly.
+                      </p>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </Card>
+
+        <Card className="lg:col-span-3 p-8">
           <h3 className="font-bold text-lg mb-6">Top Up Wallet</h3>
           <div className="space-y-5 max-w-md">
             <div className="space-y-2">

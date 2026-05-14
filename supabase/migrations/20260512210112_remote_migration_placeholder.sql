@@ -1,0 +1,6 @@
+-- Placeholder for a migration version that already exists in the remote database
+-- but is missing from this repository's local migrations directory.
+--
+-- This file preserves migration history alignment so later migrations can be
+-- pushed safely. If the original SQL becomes available, replace this file with
+-- the real migration contents.

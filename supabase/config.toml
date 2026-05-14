@@ -47,3 +47,6 @@ verify_jwt = false
 
 [functions.admin-manage-subagent]
 verify_jwt = true
+
+[functions.admin-manual-topup]
+verify_jwt = true

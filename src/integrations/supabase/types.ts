@@ -370,6 +370,7 @@ export type Database = {
           id: string
           is_agent: boolean
           is_banned: boolean
+          manual_topup_code: string
           phone: string | null
           profit_balance: number
           updated_at: string
@@ -384,6 +385,7 @@ export type Database = {
           id?: string
           is_agent?: boolean
           is_banned?: boolean
+          manual_topup_code?: string
           phone?: string | null
           profit_balance?: number
           updated_at?: string
@@ -398,6 +400,7 @@ export type Database = {
           id?: string
           is_agent?: boolean
           is_banned?: boolean
+          manual_topup_code?: string
           phone?: string | null
           profit_balance?: number
           updated_at?: string

@@ -8,10 +8,16 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { formatGHS } from "@/lib/format";
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<any[]>([]);
   const [search, setSearch] = useState("");
+  const [manualCode, setManualCode] = useState("");
+  const [manualAmount, setManualAmount] = useState("");
+  const [manualLookupLoading, setManualLookupLoading] = useState(false);
+  const [manualTopUpLoading, setManualTopUpLoading] = useState(false);
+  const [manualLookupResult, setManualLookupResult] = useState<any | null>(null);
   const [resettingUserId, setResettingUserId] = useState<string | null>(null);
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
   const [resetTarget, setResetTarget] = useState<any | null>(null);
@@ -26,6 +32,83 @@ export default function AdminUsersPage() {
   useEffect(() => {
     load();
   }, []);
+
+  const lookupManualTopUpUser = async () => {
+    const code = manualCode.trim();
+    if (!/^\d{4}$/.test(code)) {
+      toast.error("Enter a valid 4-digit code");
+      return;
+    }
+
+    setManualLookupLoading(true);
+    setManualLookupResult(null);
+
+    const { data: profile, error } = await supabase
+      .from("profiles")
+      .select("id,user_id,full_name,email,phone,is_agent,is_banned,wallet_balance,manual_topup_code")
+      .eq("manual_topup_code", code)
+      .maybeSingle();
+
+    if (error) {
+      setManualLookupLoading(false);
+      toast.error(error.message);
+      return;
+    }
+
+    if (!profile) {
+      setManualLookupLoading(false);
+      toast.error("No user found for that code");
+      return;
+    }
+
+    const { data: subAgentRole } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", profile.user_id)
+      .eq("role", "sub_agent")
+      .maybeSingle();
+
+    setManualLookupResult({
+      ...profile,
+      is_sub_agent: Boolean(subAgentRole),
+    });
+    setManualLookupLoading(false);
+  };
+
+  const applyManualTopUp = async () => {
+    const amount = Number(manualAmount);
+    if (!manualLookupResult) {
+      toast.error("Search for a user first");
+      return;
+    }
+    if (manualLookupResult.is_sub_agent) {
+      toast.error("Manual top-up is not available for subagents");
+      return;
+    }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast.error("Enter a valid amount");
+      return;
+    }
+
+    setManualTopUpLoading(true);
+    const { data, error } = await supabase.functions.invoke("admin-manual-topup", {
+      body: {
+        manual_topup_code: manualLookupResult.manual_topup_code,
+        amount,
+      },
+    });
+    setManualTopUpLoading(false);
+
+    if (error || !data?.success) {
+      toast.error(data?.error || error?.message || "Manual top-up failed");
+      return;
+    }
+
+    toast.success(`Wallet topped up with ${formatGHS(amount)}`);
+    setManualAmount("");
+    setManualLookupResult((current: any) => current ? { ...current, wallet_balance: data.new_balance } : current);
+    load();
+  };
 
   const revokeAgentAccess = async (user: any) => {
     const { error: profileError } = await supabase
@@ -139,7 +222,8 @@ export default function AdminUsersPage() {
     return (
       String(u.full_name || "").toLowerCase().includes(q) ||
       String(u.email || "").toLowerCase().includes(q) ||
-      String(u.phone || "").toLowerCase().includes(q)
+      String(u.phone || "").toLowerCase().includes(q) ||
+      String(u.manual_topup_code || "").toLowerCase().includes(q)
     );
   });
 
@@ -151,11 +235,85 @@ export default function AdminUsersPage() {
       </div>
 
       <Card className="p-4">
-        <Input
-          placeholder="Search by name, email, or phone"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(340px,420px)]">
+          <Input
+            placeholder="Search by name, email, phone, or 4-digit code"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+
+          <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-4">
+            <div>
+              <h3 className="font-semibold">Manual Wallet Top-up</h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                Find a user by their 4-digit code and credit the wallet after confirming payment.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+              <Input
+                placeholder="Enter 4-digit code"
+                inputMode="numeric"
+                maxLength={4}
+                value={manualCode}
+                onChange={(e) => setManualCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
+              />
+              <Button type="button" variant="outline" onClick={lookupManualTopUpUser} disabled={manualLookupLoading || manualCode.trim().length !== 4}>
+                {manualLookupLoading ? "Searching..." : "Search"}
+              </Button>
+            </div>
+
+            {manualLookupResult && (
+              <div className="rounded-lg border border-border bg-background p-4 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-semibold">{manualLookupResult.full_name || "Unnamed user"}</p>
+                    <p className="text-sm text-muted-foreground">{manualLookupResult.email}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Code: {manualLookupResult.manual_topup_code}</p>
+                  </div>
+                  {manualLookupResult.is_sub_agent ? (
+                    <Badge variant="secondary">Subagent</Badge>
+                  ) : manualLookupResult.is_agent ? (
+                    <Badge>Agent</Badge>
+                  ) : (
+                    <Badge variant="secondary">User</Badge>
+                  )}
+                </div>
+
+                <div className="grid sm:grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <p className="text-muted-foreground">Phone</p>
+                    <p className="font-medium">{manualLookupResult.phone || "-"}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Current Wallet</p>
+                    <p className="font-medium">{formatGHS(manualLookupResult.wallet_balance || 0)}</p>
+                  </div>
+                </div>
+
+                {manualLookupResult.is_sub_agent ? (
+                  <p className="text-sm text-destructive">Manual top-up is disabled for subagent accounts.</p>
+                ) : manualLookupResult.is_banned ? (
+                  <p className="text-sm text-destructive">This account is banned and cannot be credited.</p>
+                ) : (
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      placeholder="Amount to top up"
+                      value={manualAmount}
+                      onChange={(e) => setManualAmount(e.target.value)}
+                    />
+                    <Button type="button" onClick={applyManualTopUp} disabled={manualTopUpLoading || !manualAmount.trim()}>
+                      {manualTopUpLoading ? "Crediting..." : "Top Up Wallet"}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
       </Card>
 
       <Card className="overflow-hidden">
@@ -164,6 +322,7 @@ export default function AdminUsersPage() {
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Email</TableHead>
+              <TableHead>Code</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Actions</TableHead>
@@ -174,6 +333,7 @@ export default function AdminUsersPage() {
               <TableRow key={u.id}>
                 <TableCell>{u.full_name || "-"}</TableCell>
                 <TableCell>{u.email}</TableCell>
+                <TableCell className="font-mono tracking-widest">{u.manual_topup_code || "-"}</TableCell>
                 <TableCell>{u.is_agent ? <Badge>Agent</Badge> : <Badge variant="secondary">User</Badge>}</TableCell>
                 <TableCell>
                   {u.is_banned ? (
@@ -227,7 +387,7 @@ export default function AdminUsersPage() {
             ))}
             {filteredUsers.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-8">
+                <TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-8">
                   No users found for your search.
                 </TableCell>
               </TableRow>

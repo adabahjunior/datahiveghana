@@ -10,6 +10,7 @@ type Profile = {
   user_id: string;
   email: string;
   full_name: string | null;
+  manual_topup_code: string;
   phone: string | null;
   wallet_balance: number;
   profit_balance: number;
