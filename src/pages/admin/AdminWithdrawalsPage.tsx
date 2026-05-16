@@ -14,7 +14,7 @@ export default function AdminWithdrawalsPage() {
   const load = async () => {
     const [{ data: w }, { data: p }] = await Promise.all([
       supabase.from("withdrawals").select("*").order("created_at", { ascending: false }).limit(500),
-      supabase.from("profiles").select("user_id,full_name,profit_balance"),
+      supabase.from("profiles").select("user_id,full_name,email,phone,profit_balance"),
     ]);
 
     setWithdrawals(w || []);
@@ -31,36 +31,56 @@ export default function AdminWithdrawalsPage() {
     return map;
   }, [profiles]);
 
-  const confirmSent = async (withdrawal: any) => {
+  const approveWithdrawal = async (withdrawal: any) => {
     const profile = profileMap.get(withdrawal.agent_id);
     if (!profile) {
       toast.error("Agent profile not found");
       return;
     }
 
-    const nextProfit = Math.max(0, Number(profile.profit_balance) - Number(withdrawal.amount));
+    const withdrawalAmount = Number(withdrawal.amount);
 
-    const { error: withdrawalError } = await supabase
-      .from("withdrawals")
-      .update({ status: "paid", processed_at: new Date().toISOString() })
-      .eq("id", withdrawal.id);
-
-    if (withdrawalError) {
-      toast.error(withdrawalError.message);
-      return;
-    }
-
-    const { error: profileError } = await supabase
+    const { data: debitedProfile, error: profileError } = await supabase
       .from("profiles")
-      .update({ profit_balance: nextProfit })
-      .eq("user_id", withdrawal.agent_id);
+      .update({ profit_balance: Number(profile.profit_balance) - withdrawalAmount })
+      .eq("user_id", withdrawal.agent_id)
+      .gte("profit_balance", withdrawalAmount)
+      .select("profit_balance")
+      .maybeSingle();
 
     if (profileError) {
       toast.error(profileError.message);
       return;
     }
 
-    toast.success("Withdrawal marked as sent and profit updated.");
+    if (!debitedProfile) {
+      toast.error("Agent does not have enough profit balance for this approval.");
+      return;
+    }
+
+    const { error: withdrawalError } = await supabase
+      .from("withdrawals")
+      .update({ status: "approved", processed_at: new Date().toISOString() })
+      .eq("id", withdrawal.id);
+
+    if (withdrawalError) {
+      await supabase
+        .from("profiles")
+        .update({ profit_balance: Number(profile.profit_balance) })
+        .eq("user_id", withdrawal.agent_id);
+      toast.error(withdrawalError.message);
+      return;
+    }
+
+    await supabase
+      .from("transactions")
+      .update({ status: "success" })
+      .eq("reference", `withdrawal:${withdrawal.id}`)
+      .eq("user_id", withdrawal.agent_id)
+      .eq("type", "withdrawal")
+      .eq("status", "pending");
+
+    toast.success("Withdrawal approved and profit deducted.");
     load();
   };
 
@@ -77,6 +97,7 @@ export default function AdminWithdrawalsPage() {
             <TableRow>
               <TableHead>Date</TableHead>
               <TableHead>Agent</TableHead>
+              <TableHead>Agent Details</TableHead>
               <TableHead>Current Profit</TableHead>
               <TableHead>Requested Amount</TableHead>
               <TableHead>MoMo Details</TableHead>
@@ -91,6 +112,10 @@ export default function AdminWithdrawalsPage() {
                 <TableRow key={w.id}>
                   <TableCell>{formatDateTime(w.created_at)}</TableCell>
                   <TableCell>{profile?.full_name || "Unknown Agent"}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    <div>{profile?.email || "-"}</div>
+                    <div>{profile?.phone || "-"}</div>
+                  </TableCell>
                   <TableCell>{formatGHS(profile?.profit_balance || 0)}</TableCell>
                   <TableCell>{formatGHS(w.amount)}</TableCell>
                   <TableCell>{w.momo_number} ({w.momo_name}) - {networkLabel[w.network]}</TableCell>
@@ -101,7 +126,7 @@ export default function AdminWithdrawalsPage() {
                   </TableCell>
                   <TableCell>
                     {w.status === "pending" ? (
-                      <Button size="sm" onClick={() => confirmSent(w)}>Sent</Button>
+                      <Button size="sm" onClick={() => approveWithdrawal(w)}>Approve</Button>
                     ) : (
                       <span className="text-xs text-muted-foreground">-</span>
                     )}
