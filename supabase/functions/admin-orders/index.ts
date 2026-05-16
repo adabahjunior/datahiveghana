@@ -5,6 +5,33 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const PAGE_SIZE = 1000;
+
+async function fetchAllOrders(supabase: ReturnType<typeof createClient>) {
+  const allOrders: any[] = [];
+  let from = 0;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from("orders")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .range(from, from + PAGE_SIZE - 1);
+
+    if (error) throw new Error(`Orders fetch failed: ${error.message}`);
+
+    const chunk = data || [];
+    if (chunk.length === 0) break;
+
+    allOrders.push(...chunk);
+
+    if (chunk.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+
+  return allOrders;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -25,12 +52,13 @@ Deno.serve(async (req) => {
 
     if (!adminRole) return json({ success: false, error: "Admins only" });
 
-    const [{ data: orders }, { data: stores }, { data: assignments }, { data: withdrawals }] = await Promise.all([
-      supabase.from("orders").select("*").order("created_at", { ascending: false }).limit(5000),
+    const [{ data: stores }, { data: assignments }, { data: withdrawals }] = await Promise.all([
       supabase.from("agent_stores").select("id,store_name,slug,agent_id"),
       supabase.from("subagent_assignments").select("parent_agent_id,subagent_user_id,status").eq("status", "active"),
       supabase.from("withdrawals").select("amount,status"),
     ]);
+
+    const orders = await fetchAllOrders(supabase);
 
     const storeMap = new Map((stores || []).map((store: any) => [store.id, store]));
     const assignmentMap = new Map((assignments || []).map((assignment: any) => [assignment.subagent_user_id, assignment]));
