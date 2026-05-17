@@ -38,8 +38,9 @@ const dotClass: Record<string, string> = {
 export default function BuyData() {
   const { network: networkSlug } = useParams<{ network: string }>();
   const network = networkSlugMap[networkSlug || ""];
-  const { isAgent, profile, refreshProfile } = useAuth();
+  const { isAgent, isSubAgent, profile, refreshProfile } = useAuth();
   const [packages, setPackages] = useState<any[]>([]);
+  const [agentBaseOverrides, setAgentBaseOverrides] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<any>(null);
   const [phone, setPhone] = useState("");
@@ -55,9 +56,34 @@ export default function BuyData() {
       });
   }, [network]);
 
+  useEffect(() => {
+    if (!profile?.user_id || !isAgent || isSubAgent) {
+      setAgentBaseOverrides({});
+      return;
+    }
+
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("agent_package_base_prices")
+        .select("package_id,base_price,is_active")
+        .eq("agent_user_id", profile.user_id)
+        .eq("is_active", true);
+
+      const next: Record<string, number> = {};
+      (data || []).forEach((row: any) => {
+        next[row.package_id] = Number(row.base_price);
+      });
+      setAgentBaseOverrides(next);
+    })();
+  }, [profile?.user_id, isAgent, isSubAgent]);
+
   if (!network) return <div className="p-8">Unknown network.</div>;
 
-  const priceFor = (p: any) => isAgent ? Number(p.agent_price) : Number(p.guest_price);
+  const priceFor = (p: any) => {
+    if (isSubAgent) return Number(p.guest_price);
+    if (isAgent) return Number(agentBaseOverrides[p.id] ?? p.agent_price);
+    return Number(p.guest_price);
+  };
 
   const handleBuy = async () => {
     if (!selected || !phone || phone.length < 10) {

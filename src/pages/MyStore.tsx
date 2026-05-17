@@ -27,6 +27,7 @@ export default function MyStore() {
   const [storeDetailsForm, setStoreDetailsForm] = useState({ support_phone: "", whatsapp_link: "" });
   const [packages, setPackages] = useState<any[]>([]);
   const [checkerProducts, setCheckerProducts] = useState<any[]>([]);
+  const [agentBasePrices, setAgentBasePrices] = useState<Record<string, number>>({});
   const [subagentBasePrices, setSubagentBasePrices] = useState<Record<string, number>>({});
   const [subagentCheckerBasePrices, setSubagentCheckerBasePrices] = useState<Record<string, number>>({});
   const [storePrices, setStorePrices] = useState<Record<string, { price: number; listed: boolean }>>({});
@@ -61,6 +62,19 @@ export default function MyStore() {
   const loadCatalog = async (storeId: string) => {
     const basePriceMap: Record<string, number> = {};
     const checkerBasePriceMap: Record<string, number> = {};
+    const agentBasePriceMap: Record<string, number> = {};
+
+    if (profile && !isSubAgent) {
+      const { data: agentOverrides } = await (supabase as any)
+        .from("agent_package_base_prices")
+        .select("package_id,base_price,is_active")
+        .eq("agent_user_id", profile.user_id)
+        .eq("is_active", true);
+
+      (agentOverrides || []).forEach((row: any) => {
+        agentBasePriceMap[row.package_id] = Number(row.base_price);
+      });
+    }
 
     if (profile && isSubAgent) {
       const { data: assignment } = await supabase
@@ -96,6 +110,7 @@ export default function MyStore() {
 
     setSubagentBasePrices(basePriceMap);
     setSubagentCheckerBasePrices(checkerBasePriceMap);
+    setAgentBasePrices(agentBasePriceMap);
 
     const [{ data: pkgs }, { data: sp }, { data: checkerCatalog }, { data: storeCheckerPriceRows }] = await Promise.all([
       supabase.from("data_packages").select("*").eq("is_active", true).order("network").order("display_order"),
@@ -110,7 +125,7 @@ export default function MyStore() {
     (pkgs || []).forEach((p: any) => {
       const fallbackBase = isSubAgent
         ? Number(basePriceMap[p.id] ?? p.agent_price)
-        : Number(p.guest_price);
+        : Number(agentBasePriceMap[p.id] ?? p.guest_price);
       const existing = (sp || []).find((x: any) => x.package_id === p.id);
       map[p.id] = {
         price: existing ? Number(existing.selling_price) : fallbackBase,
@@ -171,7 +186,7 @@ export default function MyStore() {
     const sp = storePrices[pkg.id];
     const minimumBase = isSubAgent
       ? Number(subagentBasePrices[pkg.id] ?? pkg.agent_price)
-      : Number(pkg.agent_price);
+      : Number(agentBasePrices[pkg.id] ?? pkg.agent_price);
 
     if (sp.price < minimumBase) {
       toast.error(`Selling price must be at least ${formatGHS(minimumBase)}`);
@@ -460,7 +475,7 @@ export default function MyStore() {
                     const sp = storePrices[p.id] || { price: Number(p.guest_price), listed: true };
                     const packageBase = isSubAgent
                       ? Number(subagentBasePrices[p.id] ?? p.agent_price)
-                      : Number(p.agent_price);
+                      : Number(agentBasePrices[p.id] ?? p.agent_price);
                     const profit = Number(sp.price) - packageBase;
                     return (
                       <TableRow key={p.id}>

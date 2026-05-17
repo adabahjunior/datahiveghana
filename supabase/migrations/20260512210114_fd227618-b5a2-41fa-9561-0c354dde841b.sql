@@ -1,9 +1,19 @@
 -- Allow subagents to create their own pending assignment when signing up
-CREATE POLICY "Subagents create own pending assignment"
-ON public.subagent_assignments
-FOR INSERT
-TO authenticated
-WITH CHECK (subagent_user_id = auth.uid() AND status = 'pending');
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'subagent_assignments'
+      AND policyname = 'Subagents create own pending assignment'
+  ) THEN
+    CREATE POLICY "Subagents create own pending assignment"
+    ON public.subagent_assignments
+    FOR INSERT
+    TO authenticated
+    WITH CHECK (subagent_user_id = auth.uid() AND status = 'pending');
+  END IF;
+END $$;
 
 -- Ensure unique subagent per user (used by upsert in edge functions)
 DO $$ BEGIN

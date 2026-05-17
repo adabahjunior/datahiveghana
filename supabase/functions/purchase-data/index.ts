@@ -113,7 +113,26 @@ Deno.serve(async (req) => {
     const isSubAgent = roleList.includes("sub_agent");
     const isAgent = profile.is_agent || roleList.includes("agent");
 
+    let effectiveAgentBase = Number(pkg.agent_price);
+    if (isAgent && !isSubAgent) {
+      const { data: agentBaseOverride } = await supabase
+        .from("agent_package_base_prices")
+        .select("base_price,is_active")
+        .eq("agent_user_id", user.id)
+        .eq("package_id", pkg.id)
+        .eq("is_active", true)
+        .maybeSingle();
+
+      if (agentBaseOverride) {
+        effectiveAgentBase = Number(agentBaseOverride.base_price);
+      }
+    }
+
     let price = isAgent ? Number(pkg.agent_price) : Number(pkg.guest_price);
+    if (isAgent && !isSubAgent) {
+      price = effectiveAgentBase;
+    }
+
     if (isSubAgent) {
       const { data: assignment } = await supabase
         .from("subagent_assignments")
@@ -155,7 +174,7 @@ Deno.serve(async (req) => {
       network: pkg.network,
       volume_mb: pkg.volume_mb,
       amount_paid: price,
-      cost_price: Number(pkg.agent_price),
+      cost_price: effectiveAgentBase,
       agent_profit: 0,
       status: "processing",
       paid_via: "wallet",

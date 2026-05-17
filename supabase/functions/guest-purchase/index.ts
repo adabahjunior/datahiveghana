@@ -197,13 +197,6 @@ Deno.serve(async (req) => {
     ]);
     if (!store || !pkg || !storePrice) return json({ error: "Package not available in this store" }, 404);
 
-    // Always derive price from server-side store pricing; never trust client input.
-    const sellingPrice = Number(storePrice.selling_price);
-    const adminAgentBase = Number(pkg.agent_price);
-    let costPrice = adminAgentBase;
-    let sellerProfit = Math.max(0, sellingPrice - adminAgentBase);
-    let parentAgentProfit = 0;
-
     let subagentUserId: string | undefined;
     let parentAgentId: string | undefined;
 
@@ -213,6 +206,28 @@ Deno.serve(async (req) => {
       .eq("subagent_user_id", store.agent_id)
       .eq("status", "active")
       .maybeSingle();
+
+    // Always derive price from server-side store pricing; never trust client input.
+    const sellingPrice = Number(storePrice.selling_price);
+
+    const baseAgentUserId = assignment?.parent_agent_id || store.agent_id;
+    let adminAgentBase = Number(pkg.agent_price);
+
+    const { data: agentBaseOverride } = await supabase
+      .from("agent_package_base_prices")
+      .select("base_price,is_active")
+      .eq("agent_user_id", baseAgentUserId)
+      .eq("package_id", pkg.id)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (agentBaseOverride) {
+      adminAgentBase = Number(agentBaseOverride.base_price);
+    }
+
+    let costPrice = adminAgentBase;
+    let sellerProfit = Math.max(0, sellingPrice - adminAgentBase);
+    let parentAgentProfit = 0;
 
     if (assignment?.parent_agent_id) {
       subagentUserId = store.agent_id;

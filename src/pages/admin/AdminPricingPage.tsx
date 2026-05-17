@@ -34,6 +34,9 @@ export default function AdminPricingPage() {
   const [packages, setPackages] = useState<any[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<any>(initialForm);
+  const [agents, setAgents] = useState<any[]>([]);
+  const [selectedAgentId, setSelectedAgentId] = useState<string>("");
+  const [agentOverrides, setAgentOverrides] = useState<Record<string, number>>({});
   const [checkers, setCheckers] = useState<any[]>([]);
   const [editingCheckerId, setEditingCheckerId] = useState<string | null>(null);
   const [checkerForm, setCheckerForm] = useState<any>(initialCheckerForm);
@@ -55,17 +58,100 @@ export default function AdminPricingPage() {
   }, [packages]);
 
   const load = async () => {
-    const [{ data }, { data: checkerProducts }] = await Promise.all([
+    const [{ data }, { data: checkerProducts }, { data: agentProfiles }] = await Promise.all([
       supabase.from("data_packages").select("*").order("network").order("display_order"),
       (supabase as any).from("checker_products").select("*").order("display_order"),
+      supabase.from("profiles").select("user_id,full_name,email").eq("is_agent", true).order("full_name", { ascending: true }),
     ]);
     setPackages(data || []);
     setCheckers(checkerProducts || []);
+    setAgents(agentProfiles || []);
   };
 
   useEffect(() => {
     load();
   }, []);
+
+  useEffect(() => {
+    if (!selectedAgentId) {
+      setAgentOverrides({});
+      return;
+    }
+
+    (async () => {
+      const { data, error } = await (supabase as any)
+        .from("agent_package_base_prices")
+        .select("package_id,base_price,is_active")
+        .eq("agent_user_id", selectedAgentId)
+        .eq("is_active", true);
+
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+
+      const next: Record<string, number> = {};
+      (data || []).forEach((row: any) => {
+        next[row.package_id] = Number(row.base_price);
+      });
+      setAgentOverrides(next);
+    })();
+  }, [selectedAgentId]);
+
+  const saveAgentOverride = async (pkg: any) => {
+    if (!selectedAgentId) {
+      toast.error("Select an agent first");
+      return;
+    }
+
+    const override = Number(agentOverrides[pkg.id]);
+    if (!Number.isFinite(override) || override <= 0) {
+      toast.error("Enter a valid base price");
+      return;
+    }
+
+    const { error } = await (supabase as any).from("agent_package_base_prices").upsert(
+      {
+        agent_user_id: selectedAgentId,
+        package_id: pkg.id,
+        base_price: override,
+        is_active: true,
+      },
+      { onConflict: "agent_user_id,package_id" },
+    );
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    toast.success("Agent base price saved");
+  };
+
+  const clearAgentOverride = async (pkg: any) => {
+    if (!selectedAgentId) {
+      toast.error("Select an agent first");
+      return;
+    }
+
+    const { error } = await (supabase as any)
+      .from("agent_package_base_prices")
+      .delete()
+      .eq("agent_user_id", selectedAgentId)
+      .eq("package_id", pkg.id);
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    setAgentOverrides((prev) => {
+      const next = { ...prev };
+      delete next[pkg.id];
+      return next;
+    });
+    toast.success("Agent override cleared");
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -300,6 +386,82 @@ export default function AdminPricingPage() {
                 </TableCell>
               </TableRow>
             ))}
+          </TableBody>
+        </Table>
+      </Card>
+
+      <Card className="overflow-hidden">
+        <div className="p-5 border-b border-border bg-muted/30 space-y-3">
+          <h3 className="font-bold">Per-Agent Data Base Prices</h3>
+          <p className="text-sm text-muted-foreground">
+            Set custom package base prices for one agent. These overrides affect only that selected agent account.
+          </p>
+          <div className="max-w-md">
+            <Label>Select Agent</Label>
+            <Select value={selectedAgentId} onValueChange={setSelectedAgentId}>
+              <SelectTrigger><SelectValue placeholder="Choose an agent" /></SelectTrigger>
+              <SelectContent>
+                {agents.map((agent) => (
+                  <SelectItem key={agent.user_id} value={agent.user_id}>
+                    {(agent.full_name || "Unnamed Agent")} ({agent.email})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Network</TableHead>
+              <TableHead>Package</TableHead>
+              <TableHead>Default Agent Base</TableHead>
+              <TableHead>Agent Override</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {packages.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-10">
+                  No packages available.
+                </TableCell>
+              </TableRow>
+            ) : packages.map((pkg) => {
+              const effective = Number(agentOverrides[pkg.id] ?? pkg.agent_price);
+              return (
+                <TableRow key={`agent-override-${pkg.id}`}>
+                  <TableCell>{networkLabel[pkg.network]}</TableCell>
+                  <TableCell>{pkg.name}</TableCell>
+                  <TableCell>{pkg.agent_price}</TableCell>
+                  <TableCell>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={effective}
+                      disabled={!selectedAgentId}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value);
+                        setAgentOverrides((prev) => ({
+                          ...prev,
+                          [pkg.id]: Number.isFinite(val) ? val : 0,
+                        }));
+                      }}
+                      className="w-28"
+                    />
+                  </TableCell>
+                  <TableCell className="space-x-2">
+                    <Button size="sm" variant="outline" disabled={!selectedAgentId} onClick={() => saveAgentOverride(pkg)}>
+                      Save
+                    </Button>
+                    <Button size="sm" variant="destructive" disabled={!selectedAgentId} onClick={() => clearAgentOverride(pkg)}>
+                      Clear
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </Card>
