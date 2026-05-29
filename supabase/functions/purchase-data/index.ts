@@ -17,12 +17,10 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return fail("Method not allowed", "METHOD_NOT_ALLOWED");
 
   try {
-    const providerApiKey = Deno.env.get("SPENDLESS_API_KEY");
-    const providerPurchaseUrl = Deno.env.get("SPENDLESS_PURCHASE_URL") || "https://spendless.top/api/purchase";
-    if (!providerApiKey) return fail("Provider API key is not configured", "PROVIDER_NOT_CONFIGURED");
-
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-    const providerWebhookUrl = Deno.env.get("SPENDLESS_WEBHOOK_URL") || undefined;
+    const activeProvider = await getActiveProvider(supabase);
+    if (!activeProvider.api_key) return fail(`Active provider "${activeProvider.display_name}" has no API key configured`, "PROVIDER_NOT_CONFIGURED");
+
 
     const auth = req.headers.get("Authorization");
     if (!auth) return fail("Unauthorized", "UNAUTHORIZED");
