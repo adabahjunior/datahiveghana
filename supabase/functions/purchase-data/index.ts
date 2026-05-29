@@ -1,65 +1,16 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { callProvider, getActiveProvider, type NetworkSlug } from "../_shared/dataProvider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const NETWORK_KEY_MAP: Record<string, string> = {
-  mtn: "YELLO",
-  telecel: "TELECEL",
-  airteltigo_ishare: "AT_PREMIUM",
-  airteltigo_bigtime: "AT_BIGTIME",
-};
-
-const toProviderCapacity = (volumeMb: number): number => {
-  const gb = Number(volumeMb) / 1024;
-  return Number.isFinite(gb) ? Number(gb.toFixed(2)) : 0;
-};
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
 const appendNotes = (existing: string | null | undefined, line: string): string => {
   if (!existing) return line;
   return `${existing}\n${line}`;
 };
 
-const purchaseFromProvider = async (
-  purchaseUrl: string,
-  apiKey: string,
-  payload: { networkKey: string; recipient: string; capacity: number; webhook_url?: string },
-) => {
-  const maxAttempts = 4;
-  let lastResult: { ok: boolean; status: number; body: any } | null = null;
-
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const response = await fetch(purchaseUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-API-Key": apiKey,
-      },
-      body: JSON.stringify(payload),
-    });
-
-    const text = await response.text();
-    let parsed: any = null;
-    try {
-      parsed = text ? JSON.parse(text) : null;
-    } catch {
-      parsed = { raw: text };
-    }
-
-    lastResult = { ok: response.ok, status: response.status, body: parsed };
-
-    const retriable = response.status === 429 || response.status >= 500;
-    if (!retriable || attempt === maxAttempts) break;
-
-    await sleep(500 * 2 ** (attempt - 1));
-  }
-
-  return lastResult || { ok: false, status: 500, body: { status: "error", message: "No provider response" } };
-};
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
