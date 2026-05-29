@@ -65,34 +65,23 @@ Deno.serve(async (req) => {
       .single();
     if (orderError || !order) return json({ success: false, error: "Order not found" }, 200);
 
-    const providerNetworkKey = NETWORK_KEY_MAP[order.network as string];
-    if (!providerNetworkKey) {
-      await supabase
-        .from("orders")
-        .update({ status: "failed", notes: appendNotes(order.notes, "Retry failed: unsupported network mapping") })
-        .eq("id", order.id);
-      return json({ success: false, error: "Unsupported network mapping" }, 200);
-    }
-
     await supabase
       .from("orders")
-      .update({ status: "processing", notes: appendNotes(order.notes, `Retry started by admin at ${new Date().toISOString()}`) })
+      .update({ status: "processing", notes: appendNotes(order.notes, `Retry started by admin at ${new Date().toISOString()} via ${activeProvider.provider_key}`) })
       .eq("id", order.id);
 
-    const providerRes = await purchaseFromProvider(providerPurchaseUrl, providerApiKey, {
-      networkKey: providerNetworkKey,
+    const providerRes = await callProvider(activeProvider, {
+      network: order.network as NetworkSlug,
       recipient: order.recipient_phone,
-      capacity: toProviderCapacity(Number(order.volume_mb)),
-      webhook_url: providerWebhookUrl,
+      volumeMb: Number(order.volume_mb),
     });
 
-    const providerSuccess = isProviderAccepted(providerRes);
-    if (!providerSuccess) {
+    if (!providerRes.ok) {
       await supabase
         .from("orders")
         .update({
           status: "failed",
-          notes: appendNotes(order.notes, `Retry provider failure (${providerRes.status}): ${JSON.stringify(providerRes.body)}`),
+          notes: appendNotes(order.notes, `[${activeProvider.provider_key}] Retry provider failure (${providerRes.status}): ${JSON.stringify(providerRes.body)}`),
         })
         .eq("id", order.id);
 
@@ -105,11 +94,11 @@ Deno.serve(async (req) => {
       }, 200);
     }
 
-    const providerReference = providerRes.body?.data?.reference ? String(providerRes.body.data.reference) : null;
-    const providerOrderId = providerRes.body?.data?.orderId != null ? String(providerRes.body.data.orderId) : null;
-    const providerOrderStatus = String(providerRes.body?.data?.status || "processing").toLowerCase();
+    const providerReference = providerRes.reference;
+    const providerOrderId = providerRes.orderId;
+    const providerOrderStatus = providerRes.providerStatus;
     const finalOrderStatus = providerOrderStatus === "delivered" ? "delivered" : "processing";
-    const providerBalance = providerRes.body?.data?.balance != null ? String(providerRes.body.data.balance) : null;
+    const providerBalance = providerRes.balance;
 
     await supabase
       .from("orders")
@@ -121,10 +110,11 @@ Deno.serve(async (req) => {
         provider_response: providerRes.body,
         notes: appendNotes(
           order.notes,
-          `Retry provider accepted${providerReference ? ` | ref: ${providerReference}` : ""}${providerBalance ? ` | balance: ${providerBalance}` : ""}${providerOrderStatus ? ` | status: ${providerOrderStatus}` : ""}`,
+          `[${activeProvider.provider_key}] Retry provider accepted${providerReference ? ` | ref: ${providerReference}` : ""}${providerBalance ? ` | balance: ${providerBalance}` : ""}${providerOrderStatus ? ` | status: ${providerOrderStatus}` : ""}`,
         ),
       })
       .eq("id", order.id);
+
 
     if (finalOrderStatus === "delivered" && order.store_id && Number(order.agent_profit || 0) > 0) {
       const { data: store } = await supabase
