@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { Bell, CreditCard, GraduationCap, LayoutDashboard, Package, Settings, ShoppingCart, Users, Wallet, Wrench } from "lucide-react";
+import { Bell, CreditCard, GraduationCap, LayoutDashboard, Package, Plug, Settings, ShoppingCart, Users, Wallet, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
@@ -17,6 +17,7 @@ const navItems = [
   { to: "/admin/notifications", label: "Notification", icon: Bell },
   { to: "/admin/site-settings", label: "Site Setting", icon: Settings },
   { to: "/admin/university-forms", label: "University Forms", icon: GraduationCap },
+  { to: "/admin/data-providers", label: "Data Providers", icon: Plug },
 ];
 
 export default function AdminLayout() {

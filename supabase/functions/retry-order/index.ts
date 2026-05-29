@@ -1,31 +1,15 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { callProvider, getActiveProvider, type NetworkSlug } from "../_shared/dataProvider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const NETWORK_KEY_MAP: Record<string, string> = {
-  mtn: "YELLO",
-  telecel: "TELECEL",
-  airteltigo_ishare: "AT_PREMIUM",
-  airteltigo_bigtime: "AT_BIGTIME",
-};
-
-const toProviderCapacity = (volumeMb: number): number => {
-  const gb = Number(volumeMb) / 1024;
-  return Number.isFinite(gb) ? Number(gb.toFixed(2)) : 0;
-};
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
 const appendNotes = (existing: string | null | undefined, line: string): string => {
   if (!existing) return line;
   return `${existing}\n${line}`;
 };
-
-const acceptedStatuses = new Set(["success", "ok", "accepted", "processing", "queued", "pending", "delivered"]);
-const failedStatuses = new Set(["failed", "error", "rejected", "cancelled"]);
 
 const extractProviderMessage = (body: any): string | null => {
   const msg = body?.message || body?.error || body?.detail || body?.data?.message;
@@ -33,61 +17,6 @@ const extractProviderMessage = (body: any): string | null => {
   return String(msg);
 };
 
-const isProviderAccepted = (res: { ok: boolean; body: any }) => {
-  if (!res.ok || !res.body) return false;
-
-  const topStatus = String(res.body?.status || "").toLowerCase();
-  const dataStatus = String(res.body?.data?.status || "").toLowerCase();
-  const message = String(extractProviderMessage(res.body) || "").toLowerCase();
-  const hasReference = !!res.body?.data?.reference;
-  const hasOrderId = res.body?.data?.orderId !== undefined && res.body?.data?.orderId !== null;
-
-  const explicitFailure = failedStatuses.has(topStatus) || failedStatuses.has(dataStatus);
-  if (explicitFailure) return false;
-
-  if (acceptedStatuses.has(topStatus) || acceptedStatuses.has(dataStatus)) return true;
-  if (message.includes("accepted") || message.includes("queued") || message.includes("processing") || message.includes("pending") || message.includes("successful")) return true;
-  if (hasReference || hasOrderId) return true;
-
-  return false;
-};
-
-const purchaseFromProvider = async (
-  purchaseUrl: string,
-  apiKey: string,
-  payload: { networkKey: string; recipient: string; capacity: number; webhook_url?: string },
-) => {
-  const maxAttempts = 4;
-  let lastResult: { ok: boolean; status: number; body: any } | null = null;
-
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const response = await fetch(purchaseUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-API-Key": apiKey,
-      },
-      body: JSON.stringify(payload),
-    });
-
-    const text = await response.text();
-    let parsed: any = null;
-    try {
-      parsed = text ? JSON.parse(text) : null;
-    } catch {
-      parsed = { raw: text };
-    }
-
-    lastResult = { ok: response.ok, status: response.status, body: parsed };
-
-    const retriable = response.status === 429 || response.status >= 500;
-    if (!retriable || attempt === maxAttempts) break;
-
-    await sleep(500 * 2 ** (attempt - 1));
-  }
-
-  return lastResult || { ok: false, status: 500, body: { status: "error", message: "No provider response" } };
-};
 
 const hasProfitTx = async (supabase: ReturnType<typeof createClient>, orderId: string, userId: string) => {
   const { data } = await supabase
@@ -106,12 +35,10 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ success: false, error: "Method not allowed" }, 200);
 
   try {
-    const providerApiKey = Deno.env.get("SPENDLESS_API_KEY");
-    const providerPurchaseUrl = Deno.env.get("SPENDLESS_PURCHASE_URL") || "https://spendless.top/api/purchase";
-    if (!providerApiKey) return json({ success: false, error: "Provider API key is not configured" }, 200);
-
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-    const providerWebhookUrl = Deno.env.get("SPENDLESS_WEBHOOK_URL") || undefined;
+    const activeProvider = await getActiveProvider(supabase);
+    if (!activeProvider.api_key) return json({ success: false, error: `Active provider "${activeProvider.display_name}" has no API key configured` }, 200);
+
 
     const auth = req.headers.get("Authorization");
     if (!auth) return json({ success: false, error: "Unauthorized" }, 200);
@@ -138,34 +65,23 @@ Deno.serve(async (req) => {
       .single();
     if (orderError || !order) return json({ success: false, error: "Order not found" }, 200);
 
-    const providerNetworkKey = NETWORK_KEY_MAP[order.network as string];
-    if (!providerNetworkKey) {
-      await supabase
-        .from("orders")
-        .update({ status: "failed", notes: appendNotes(order.notes, "Retry failed: unsupported network mapping") })
-        .eq("id", order.id);
-      return json({ success: false, error: "Unsupported network mapping" }, 200);
-    }
-
     await supabase
       .from("orders")
-      .update({ status: "processing", notes: appendNotes(order.notes, `Retry started by admin at ${new Date().toISOString()}`) })
+      .update({ status: "processing", notes: appendNotes(order.notes, `Retry started by admin at ${new Date().toISOString()} via ${activeProvider.provider_key}`) })
       .eq("id", order.id);
 
-    const providerRes = await purchaseFromProvider(providerPurchaseUrl, providerApiKey, {
-      networkKey: providerNetworkKey,
+    const providerRes = await callProvider(activeProvider, {
+      network: order.network as NetworkSlug,
       recipient: order.recipient_phone,
-      capacity: toProviderCapacity(Number(order.volume_mb)),
-      webhook_url: providerWebhookUrl,
+      volumeMb: Number(order.volume_mb),
     });
 
-    const providerSuccess = isProviderAccepted(providerRes);
-    if (!providerSuccess) {
+    if (!providerRes.ok) {
       await supabase
         .from("orders")
         .update({
           status: "failed",
-          notes: appendNotes(order.notes, `Retry provider failure (${providerRes.status}): ${JSON.stringify(providerRes.body)}`),
+          notes: appendNotes(order.notes, `[${activeProvider.provider_key}] Retry provider failure (${providerRes.status}): ${JSON.stringify(providerRes.body)}`),
         })
         .eq("id", order.id);
 
@@ -178,11 +94,11 @@ Deno.serve(async (req) => {
       }, 200);
     }
 
-    const providerReference = providerRes.body?.data?.reference ? String(providerRes.body.data.reference) : null;
-    const providerOrderId = providerRes.body?.data?.orderId != null ? String(providerRes.body.data.orderId) : null;
-    const providerOrderStatus = String(providerRes.body?.data?.status || "processing").toLowerCase();
+    const providerReference = providerRes.reference;
+    const providerOrderId = providerRes.orderId;
+    const providerOrderStatus = providerRes.providerStatus;
     const finalOrderStatus = providerOrderStatus === "delivered" ? "delivered" : "processing";
-    const providerBalance = providerRes.body?.data?.balance != null ? String(providerRes.body.data.balance) : null;
+    const providerBalance = providerRes.balance;
 
     await supabase
       .from("orders")
@@ -194,10 +110,11 @@ Deno.serve(async (req) => {
         provider_response: providerRes.body,
         notes: appendNotes(
           order.notes,
-          `Retry provider accepted${providerReference ? ` | ref: ${providerReference}` : ""}${providerBalance ? ` | balance: ${providerBalance}` : ""}${providerOrderStatus ? ` | status: ${providerOrderStatus}` : ""}`,
+          `[${activeProvider.provider_key}] Retry provider accepted${providerReference ? ` | ref: ${providerReference}` : ""}${providerBalance ? ` | balance: ${providerBalance}` : ""}${providerOrderStatus ? ` | status: ${providerOrderStatus}` : ""}`,
         ),
       })
       .eq("id", order.id);
+
 
     if (finalOrderStatus === "delivered" && order.store_id && Number(order.agent_profit || 0) > 0) {
       const { data: store } = await supabase

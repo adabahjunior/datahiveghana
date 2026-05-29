@@ -274,6 +274,45 @@ export type Database = {
         }
         Relationships: []
       }
+      data_provider_settings: {
+        Row: {
+          api_key: string
+          base_url: string
+          created_at: string
+          display_name: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          provider_key: string
+          updated_at: string
+          webhook_url: string
+        }
+        Insert: {
+          api_key?: string
+          base_url?: string
+          created_at?: string
+          display_name: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          provider_key: string
+          updated_at?: string
+          webhook_url?: string
+        }
+        Update: {
+          api_key?: string
+          base_url?: string
+          created_at?: string
+          display_name?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          provider_key?: string
+          updated_at?: string
+          webhook_url?: string
+        }
+        Relationships: []
+      }
       issue_reports: {
         Row: {
           created_at: string

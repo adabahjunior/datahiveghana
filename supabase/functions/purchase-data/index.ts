@@ -1,77 +1,26 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { callProvider, getActiveProvider, type NetworkSlug } from "../_shared/dataProvider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const NETWORK_KEY_MAP: Record<string, string> = {
-  mtn: "YELLO",
-  telecel: "TELECEL",
-  airteltigo_ishare: "AT_PREMIUM",
-  airteltigo_bigtime: "AT_BIGTIME",
-};
-
-const toProviderCapacity = (volumeMb: number): number => {
-  const gb = Number(volumeMb) / 1024;
-  return Number.isFinite(gb) ? Number(gb.toFixed(2)) : 0;
-};
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
 const appendNotes = (existing: string | null | undefined, line: string): string => {
   if (!existing) return line;
   return `${existing}\n${line}`;
 };
 
-const purchaseFromProvider = async (
-  purchaseUrl: string,
-  apiKey: string,
-  payload: { networkKey: string; recipient: string; capacity: number; webhook_url?: string },
-) => {
-  const maxAttempts = 4;
-  let lastResult: { ok: boolean; status: number; body: any } | null = null;
-
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const response = await fetch(purchaseUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-API-Key": apiKey,
-      },
-      body: JSON.stringify(payload),
-    });
-
-    const text = await response.text();
-    let parsed: any = null;
-    try {
-      parsed = text ? JSON.parse(text) : null;
-    } catch {
-      parsed = { raw: text };
-    }
-
-    lastResult = { ok: response.ok, status: response.status, body: parsed };
-
-    const retriable = response.status === 429 || response.status >= 500;
-    if (!retriable || attempt === maxAttempts) break;
-
-    await sleep(500 * 2 ** (attempt - 1));
-  }
-
-  return lastResult || { ok: false, status: 500, body: { status: "error", message: "No provider response" } };
-};
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return fail("Method not allowed", "METHOD_NOT_ALLOWED");
 
   try {
-    const providerApiKey = Deno.env.get("SPENDLESS_API_KEY");
-    const providerPurchaseUrl = Deno.env.get("SPENDLESS_PURCHASE_URL") || "https://spendless.top/api/purchase";
-    if (!providerApiKey) return fail("Provider API key is not configured", "PROVIDER_NOT_CONFIGURED");
-
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-    const providerWebhookUrl = Deno.env.get("SPENDLESS_WEBHOOK_URL") || undefined;
+    const activeProvider = await getActiveProvider(supabase);
+    if (!activeProvider.api_key) return fail(`Active provider "${activeProvider.display_name}" has no API key configured`, "PROVIDER_NOT_CONFIGURED");
+
 
     const auth = req.headers.get("Authorization");
     if (!auth) return fail("Unauthorized", "UNAUTHORIZED");
@@ -185,29 +134,20 @@ Deno.serve(async (req) => {
       return fail(`Order creation failed: ${orderError?.message || "Unknown error"}`, "ORDER_CREATE_FAILED");
     }
 
-    const providerNetworkKey = NETWORK_KEY_MAP[pkg.network as string];
-    if (!providerNetworkKey) {
-      await supabase.from("orders").update({ status: "failed", notes: appendNotes(order.notes, "Unsupported network mapping") }).eq("id", order.id);
-      await supabase.from("profiles").update({ wallet_balance: Number(profile.wallet_balance) }).eq(profileMatchColumn, user.id);
-      return fail("Unsupported network for provider", "UNSUPPORTED_NETWORK");
-    }
-
-    const providerRes = await purchaseFromProvider(providerPurchaseUrl, providerApiKey, {
-      networkKey: providerNetworkKey,
+    const providerRes = await callProvider(activeProvider, {
+      network: pkg.network as NetworkSlug,
       recipient: recipient_phone,
-      capacity: toProviderCapacity(Number(pkg.volume_mb)),
-      webhook_url: providerWebhookUrl,
+      volumeMb: Number(pkg.volume_mb),
     });
 
-    const providerSuccess = providerRes.ok && providerRes.body?.status === "success";
-    if (!providerSuccess) {
+    if (!providerRes.ok) {
       await supabase
         .from("orders")
         .update({
           status: "failed",
           provider_status: "failed",
           provider_response: providerRes.body,
-          notes: appendNotes(order.notes, `Provider failure (${providerRes.status}): ${JSON.stringify(providerRes.body)}`),
+          notes: appendNotes(order.notes, `[${activeProvider.provider_key}] Provider failure (${providerRes.status}): ${JSON.stringify(providerRes.body)}`),
         })
         .eq("id", order.id);
 
@@ -220,7 +160,6 @@ Deno.serve(async (req) => {
         description: `Provider failed for ${pkg.name} ${pkg.network.toUpperCase()} → ${recipient_phone}`,
       });
 
-      // Do not block user flow. Order is accepted and can be retried by admin.
       return json({
         success: true,
         order_id: order.id,
@@ -230,11 +169,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    const providerOrderStatus = String(providerRes.body?.data?.status || "processing").toLowerCase();
+    const providerOrderStatus = providerRes.providerStatus;
     const finalOrderStatus = providerOrderStatus === "delivered" ? "delivered" : "processing";
-    const providerReference = providerRes.body?.data?.reference ? String(providerRes.body.data.reference) : null;
-    const providerOrderId = providerRes.body?.data?.orderId != null ? String(providerRes.body.data.orderId) : null;
-    const providerBalance = providerRes.body?.data?.balance != null ? String(providerRes.body.data.balance) : null;
+    const providerReference = providerRes.reference;
+    const providerOrderId = providerRes.orderId;
+    const providerBalance = providerRes.balance;
+
 
     await supabase
       .from("orders")
@@ -246,7 +186,7 @@ Deno.serve(async (req) => {
         provider_response: providerRes.body,
         notes: appendNotes(
           order.notes,
-          `Provider accepted${providerReference ? ` | ref: ${providerReference}` : ""}${providerBalance ? ` | balance: ${providerBalance}` : ""}${providerOrderStatus ? ` | status: ${providerOrderStatus}` : ""}`,
+          `[${activeProvider.provider_key}] Provider accepted${providerReference ? ` | ref: ${providerReference}` : ""}${providerBalance ? ` | balance: ${providerBalance}` : ""}${providerOrderStatus ? ` | status: ${providerOrderStatus}` : ""}`,
         ),
       })
       .eq("id", order.id);

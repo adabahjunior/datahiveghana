@@ -42,6 +42,7 @@ import AdminPricingPage from "./pages/admin/AdminPricingPage";
 import AdminNotificationsPage from "./pages/admin/AdminNotificationsPage";
 import AdminSiteSettingsPage from "./pages/admin/AdminSiteSettingsPage";
 import AdminUniversityFormsPage from "./pages/admin/AdminUniversityFormsPage";
+import AdminDataProvidersPage from "./pages/admin/AdminDataProvidersPage";
 import UniversityForms from "./pages/UniversityForms";
 import MyStoreUniversityForms from "./pages/MyStoreUniversityForms";
 
@@ -105,6 +106,7 @@ const App = () => (
                 <Route path="notifications" element={<AdminNotificationsPage />} />
                 <Route path="site-settings" element={<AdminSiteSettingsPage />} />
                 <Route path="university-forms" element={<AdminUniversityFormsPage />} />
+                <Route path="data-providers" element={<AdminDataProvidersPage />} />
               </Route>
 
               <Route path="*" element={<MaintenanceGate><NotFound /></MaintenanceGate>} />
