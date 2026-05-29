@@ -17,6 +17,7 @@ const navItems = [
   { to: "/admin/notifications", label: "Notification", icon: Bell },
   { to: "/admin/site-settings", label: "Site Setting", icon: Settings },
   { to: "/admin/university-forms", label: "University Forms", icon: GraduationCap },
+  { to: "/admin/data-providers", label: "Data Providers", icon: Plug },
 ];
 
 export default function AdminLayout() {
