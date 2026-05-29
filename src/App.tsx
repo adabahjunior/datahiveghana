@@ -42,6 +42,7 @@ import AdminPricingPage from "./pages/admin/AdminPricingPage";
 import AdminNotificationsPage from "./pages/admin/AdminNotificationsPage";
 import AdminSiteSettingsPage from "./pages/admin/AdminSiteSettingsPage";
 import AdminUniversityFormsPage from "./pages/admin/AdminUniversityFormsPage";
+import AdminDataProvidersPage from "./pages/admin/AdminDataProvidersPage";
 import UniversityForms from "./pages/UniversityForms";
 import MyStoreUniversityForms from "./pages/MyStoreUniversityForms";
 
