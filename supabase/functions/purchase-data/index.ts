@@ -134,29 +134,20 @@ Deno.serve(async (req) => {
       return fail(`Order creation failed: ${orderError?.message || "Unknown error"}`, "ORDER_CREATE_FAILED");
     }
 
-    const providerNetworkKey = NETWORK_KEY_MAP[pkg.network as string];
-    if (!providerNetworkKey) {
-      await supabase.from("orders").update({ status: "failed", notes: appendNotes(order.notes, "Unsupported network mapping") }).eq("id", order.id);
-      await supabase.from("profiles").update({ wallet_balance: Number(profile.wallet_balance) }).eq(profileMatchColumn, user.id);
-      return fail("Unsupported network for provider", "UNSUPPORTED_NETWORK");
-    }
-
-    const providerRes = await purchaseFromProvider(providerPurchaseUrl, providerApiKey, {
-      networkKey: providerNetworkKey,
+    const providerRes = await callProvider(activeProvider, {
+      network: pkg.network as NetworkSlug,
       recipient: recipient_phone,
-      capacity: toProviderCapacity(Number(pkg.volume_mb)),
-      webhook_url: providerWebhookUrl,
+      volumeMb: Number(pkg.volume_mb),
     });
 
-    const providerSuccess = providerRes.ok && providerRes.body?.status === "success";
-    if (!providerSuccess) {
+    if (!providerRes.ok) {
       await supabase
         .from("orders")
         .update({
           status: "failed",
           provider_status: "failed",
           provider_response: providerRes.body,
-          notes: appendNotes(order.notes, `Provider failure (${providerRes.status}): ${JSON.stringify(providerRes.body)}`),
+          notes: appendNotes(order.notes, `[${activeProvider.provider_key}] Provider failure (${providerRes.status}): ${JSON.stringify(providerRes.body)}`),
         })
         .eq("id", order.id);
 
@@ -169,7 +160,6 @@ Deno.serve(async (req) => {
         description: `Provider failed for ${pkg.name} ${pkg.network.toUpperCase()} → ${recipient_phone}`,
       });
 
-      // Do not block user flow. Order is accepted and can be retried by admin.
       return json({
         success: true,
         order_id: order.id,
@@ -179,11 +169,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    const providerOrderStatus = String(providerRes.body?.data?.status || "processing").toLowerCase();
+    const providerOrderStatus = providerRes.providerStatus;
     const finalOrderStatus = providerOrderStatus === "delivered" ? "delivered" : "processing";
-    const providerReference = providerRes.body?.data?.reference ? String(providerRes.body.data.reference) : null;
-    const providerOrderId = providerRes.body?.data?.orderId != null ? String(providerRes.body.data.orderId) : null;
-    const providerBalance = providerRes.body?.data?.balance != null ? String(providerRes.body.data.balance) : null;
+    const providerReference = providerRes.reference;
+    const providerOrderId = providerRes.orderId;
+    const providerBalance = providerRes.balance;
+
 
     await supabase
       .from("orders")
