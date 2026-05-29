@@ -106,6 +106,7 @@ const App = () => (
                 <Route path="notifications" element={<AdminNotificationsPage />} />
                 <Route path="site-settings" element={<AdminSiteSettingsPage />} />
                 <Route path="university-forms" element={<AdminUniversityFormsPage />} />
+                <Route path="data-providers" element={<AdminDataProvidersPage />} />
               </Route>
 
               <Route path="*" element={<MaintenanceGate><NotFound /></MaintenanceGate>} />
