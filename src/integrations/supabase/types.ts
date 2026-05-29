@@ -14,6 +14,44 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_package_base_prices: {
+        Row: {
+          agent_user_id: string
+          base_price: number
+          created_at: string
+          id: string
+          is_active: boolean
+          package_id: string
+          updated_at: string
+        }
+        Insert: {
+          agent_user_id: string
+          base_price: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          package_id: string
+          updated_at?: string
+        }
+        Update: {
+          agent_user_id?: string
+          base_price?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          package_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_package_base_prices_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "data_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_stores: {
         Row: {
           agent_id: string
@@ -986,6 +1024,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_manual_topup_code: { Args: never; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
