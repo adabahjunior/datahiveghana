@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { Bell, CreditCard, GraduationCap, LayoutDashboard, Package, Settings, ShoppingCart, Users, Wallet, Wrench } from "lucide-react";
+import { Bell, CreditCard, GraduationCap, LayoutDashboard, Package, Plug, Settings, ShoppingCart, Users, Wallet, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
