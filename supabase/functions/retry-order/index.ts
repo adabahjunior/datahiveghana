@@ -1,31 +1,15 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { callProvider, getActiveProvider, type NetworkSlug } from "../_shared/dataProvider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const NETWORK_KEY_MAP: Record<string, string> = {
-  mtn: "YELLO",
-  telecel: "TELECEL",
-  airteltigo_ishare: "AT_PREMIUM",
-  airteltigo_bigtime: "AT_BIGTIME",
-};
-
-const toProviderCapacity = (volumeMb: number): number => {
-  const gb = Number(volumeMb) / 1024;
-  return Number.isFinite(gb) ? Number(gb.toFixed(2)) : 0;
-};
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
 const appendNotes = (existing: string | null | undefined, line: string): string => {
   if (!existing) return line;
   return `${existing}\n${line}`;
 };
-
-const acceptedStatuses = new Set(["success", "ok", "accepted", "processing", "queued", "pending", "delivered"]);
-const failedStatuses = new Set(["failed", "error", "rejected", "cancelled"]);
 
 const extractProviderMessage = (body: any): string | null => {
   const msg = body?.message || body?.error || body?.detail || body?.data?.message;
@@ -33,61 +17,6 @@ const extractProviderMessage = (body: any): string | null => {
   return String(msg);
 };
 
-const isProviderAccepted = (res: { ok: boolean; body: any }) => {
-  if (!res.ok || !res.body) return false;
-
-  const topStatus = String(res.body?.status || "").toLowerCase();
-  const dataStatus = String(res.body?.data?.status || "").toLowerCase();
-  const message = String(extractProviderMessage(res.body) || "").toLowerCase();
-  const hasReference = !!res.body?.data?.reference;
-  const hasOrderId = res.body?.data?.orderId !== undefined && res.body?.data?.orderId !== null;
-
-  const explicitFailure = failedStatuses.has(topStatus) || failedStatuses.has(dataStatus);
-  if (explicitFailure) return false;
-
-  if (acceptedStatuses.has(topStatus) || acceptedStatuses.has(dataStatus)) return true;
-  if (message.includes("accepted") || message.includes("queued") || message.includes("processing") || message.includes("pending") || message.includes("successful")) return true;
-  if (hasReference || hasOrderId) return true;
-
-  return false;
-};
-
-const purchaseFromProvider = async (
-  purchaseUrl: string,
-  apiKey: string,
-  payload: { networkKey: string; recipient: string; capacity: number; webhook_url?: string },
-) => {
-  const maxAttempts = 4;
-  let lastResult: { ok: boolean; status: number; body: any } | null = null;
-
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const response = await fetch(purchaseUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-API-Key": apiKey,
-      },
-      body: JSON.stringify(payload),
-    });
-
-    const text = await response.text();
-    let parsed: any = null;
-    try {
-      parsed = text ? JSON.parse(text) : null;
-    } catch {
-      parsed = { raw: text };
-    }
-
-    lastResult = { ok: response.ok, status: response.status, body: parsed };
-
-    const retriable = response.status === 429 || response.status >= 500;
-    if (!retriable || attempt === maxAttempts) break;
-
-    await sleep(500 * 2 ** (attempt - 1));
-  }
-
-  return lastResult || { ok: false, status: 500, body: { status: "error", message: "No provider response" } };
-};
 
 const hasProfitTx = async (supabase: ReturnType<typeof createClient>, orderId: string, userId: string) => {
   const { data } = await supabase
