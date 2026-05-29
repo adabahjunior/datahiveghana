@@ -186,7 +186,7 @@ Deno.serve(async (req) => {
         provider_response: providerRes.body,
         notes: appendNotes(
           order.notes,
-          `Provider accepted${providerReference ? ` | ref: ${providerReference}` : ""}${providerBalance ? ` | balance: ${providerBalance}` : ""}${providerOrderStatus ? ` | status: ${providerOrderStatus}` : ""}`,
+          `[${activeProvider.provider_key}] Provider accepted${providerReference ? ` | ref: ${providerReference}` : ""}${providerBalance ? ` | balance: ${providerBalance}` : ""}${providerOrderStatus ? ` | status: ${providerOrderStatus}` : ""}`,
         ),
       })
       .eq("id", order.id);
