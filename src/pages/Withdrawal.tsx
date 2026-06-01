@@ -13,7 +13,7 @@ import { formatGHS, formatDateTime, networkLabel } from "@/lib/format";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 
-const MIN = 50;
+const MIN = 20;
 
 export default function Withdrawal() {
   const { profile, refreshProfile } = useAuth();
