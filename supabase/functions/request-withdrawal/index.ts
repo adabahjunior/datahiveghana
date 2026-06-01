@@ -25,17 +25,20 @@ Deno.serve(async (req) => {
       .from("profiles")
       .select("user_id,profit_balance,is_banned,is_agent")
       .eq("user_id", user.id)
-      .single();
-
-    const { data: agentRole } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .eq("role", "agent")
       .maybeSingle();
 
-    if (profile?.is_banned) return json({ error: "This account is banned" }, 403);
-    if (!profile?.is_agent && !agentRole) return json({ error: "Agents only" }, 403);
+    if (!profile) return json({ error: "Profile not found" }, 404);
+
+    const { data: roleRows } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id);
+
+    const roles = (roleRows || []).map((r: { role: string }) => r.role);
+    const isSeller = profile.is_agent === true || roles.includes("agent") || roles.includes("sub_agent");
+
+    if (profile.is_banned) return json({ error: "This account is banned" }, 403);
+    if (!isSeller) return json({ error: "Only agents and sub-agents can withdraw" }, 403);
     if (Number(profile.profit_balance) < amt) return json({ error: "Exceeds profit balance" }, 400);
 
     const { data: withdrawal, error: withdrawalError } = await supabase.from("withdrawals").insert({
