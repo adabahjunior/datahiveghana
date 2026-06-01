@@ -41,6 +41,20 @@ export default function Transactions() {
   return (
     <div className="animate-fade-in">
       <PageHeader title="Transactions" description="A complete history of your wallet and purchases." />
+
+      <div className="grid sm:grid-cols-2 gap-4 mb-6">
+        <Card className="p-5">
+          <p className="text-xs uppercase tracking-wider text-muted-foreground">Wallet Balance</p>
+          <p className="text-2xl font-bold mt-1">{formatGHS(walletBalance)}</p>
+        </Card>
+        {isSeller && (
+          <Card className="p-5 bg-success text-success-foreground border-0">
+            <p className="text-xs uppercase tracking-wider opacity-80">Profit Balance (withdrawable)</p>
+            <p className="text-2xl font-bold mt-1">{formatGHS(profitBalance)}</p>
+          </Card>
+        )}
+      </div>
+
       <Card className="overflow-hidden">
         {loading ? (
           <div className="p-12 text-center text-sm text-muted-foreground">Loading...</div>
