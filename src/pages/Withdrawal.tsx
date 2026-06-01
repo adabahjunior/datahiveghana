@@ -50,7 +50,7 @@ export default function Withdrawal() {
     e.preventDefault();
     const amt = parseFloat(form.amount);
     if (isNaN(amt) || amt < MIN) { toast.error(`Minimum withdrawal is ${formatGHS(MIN)}`); return; }
-    if (amt > currentProfit) { toast.error("Amount exceeds profit balance"); return; }
+    if (currentProfit > 0 && amt > currentProfit + 0.0001) { toast.error("Amount exceeds profit balance"); return; }
     setSubmitting(true);
     const { data, error } = await supabase.functions.invoke("request-withdrawal", { body: { ...form, amount: amt } });
     setSubmitting(false);
