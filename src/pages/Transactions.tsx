@@ -16,16 +16,24 @@ const typeLabel: Record<string, string> = {
 };
 
 export default function Transactions() {
-  const { profile } = useAuth();
+  const { profile, isSeller } = useAuth();
   const [txns, setTxns] = useState<any[]>([]);
+  const [profitBalance, setProfitBalance] = useState(0);
+  const [walletBalance, setWalletBalance] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!profile) return;
     (async () => {
-      const { data } = await supabase.from("transactions").select("*")
-        .eq("user_id", profile.user_id).order("created_at", { ascending: false }).limit(100);
-      setTxns(data || []);
+      const [{ data: tx }, { data: p }] = await Promise.all([
+        supabase.from("transactions").select("*")
+          .eq("user_id", profile.user_id).order("created_at", { ascending: false }).limit(100),
+        supabase.from("profiles").select("profit_balance,wallet_balance")
+          .eq("user_id", profile.user_id).maybeSingle(),
+      ]);
+      setTxns(tx || []);
+      setProfitBalance(Number(p?.profit_balance || 0));
+      setWalletBalance(Number(p?.wallet_balance || 0));
       setLoading(false);
     })();
   }, [profile]);
@@ -33,6 +41,20 @@ export default function Transactions() {
   return (
     <div className="animate-fade-in">
       <PageHeader title="Transactions" description="A complete history of your wallet and purchases." />
+
+      <div className="grid sm:grid-cols-2 gap-4 mb-6">
+        <Card className="p-5">
+          <p className="text-xs uppercase tracking-wider text-muted-foreground">Wallet Balance</p>
+          <p className="text-2xl font-bold mt-1">{formatGHS(walletBalance)}</p>
+        </Card>
+        {isSeller && (
+          <Card className="p-5 bg-success text-success-foreground border-0">
+            <p className="text-xs uppercase tracking-wider opacity-80">Profit Balance (withdrawable)</p>
+            <p className="text-2xl font-bold mt-1">{formatGHS(profitBalance)}</p>
+          </Card>
+        )}
+      </div>
+
       <Card className="overflow-hidden">
         {loading ? (
           <div className="p-12 text-center text-sm text-muted-foreground">Loading...</div>

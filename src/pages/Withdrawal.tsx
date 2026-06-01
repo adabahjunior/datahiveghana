@@ -55,7 +55,17 @@ export default function Withdrawal() {
     const { data, error } = await supabase.functions.invoke("request-withdrawal", { body: { ...form, amount: amt } });
     setSubmitting(false);
     if (error || !data?.success) {
-      toast.error(data?.error || error?.message || "Failed to submit");
+      let msg = data?.error || error?.message || "Failed to submit";
+      const ctx = (error as any)?.context;
+      if (ctx && typeof ctx.json === "function") {
+        try {
+          const body = await ctx.json();
+          if (body?.error) msg = body.error;
+        } catch {
+          try { const t = await ctx.text(); if (t) msg = t; } catch {}
+        }
+      }
+      toast.error(msg);
       return;
     }
     toast.success("Your withdrawal request has been received. Funds will be sent within 24–48 hours.");
