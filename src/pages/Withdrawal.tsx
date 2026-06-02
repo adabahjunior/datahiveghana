@@ -12,6 +12,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { formatGHS, formatDateTime, networkLabel } from "@/lib/format";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import { getWithdrawableProfit } from "@/lib/profit";
 
 const MIN = 20;
 
@@ -24,14 +25,7 @@ export default function Withdrawal() {
 
   const loadCurrentProfit = async () => {
     if (!profile?.user_id) return;
-
-    const { data } = await supabase
-      .from("profiles")
-      .select("profit_balance")
-      .eq("user_id", profile.user_id)
-      .maybeSingle();
-
-    setCurrentProfit(Number(data?.profit_balance || 0));
+    setCurrentProfit(await getWithdrawableProfit(profile.user_id));
   };
 
   const load = async () => {

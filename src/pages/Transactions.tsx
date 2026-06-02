@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { PageHeader } from "@/components/PageHeader";
 import { formatGHS, formatDateTime } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
+import { getWithdrawableProfit } from "@/lib/profit";
 
 const typeLabel: Record<string, string> = {
   wallet_topup: "Wallet Top-up",
@@ -25,14 +26,15 @@ export default function Transactions() {
   useEffect(() => {
     if (!profile) return;
     (async () => {
-      const [{ data: tx }, { data: p }] = await Promise.all([
+      const [{ data: tx }, { data: p }, withdrawableProfit] = await Promise.all([
         supabase.from("transactions").select("*")
           .eq("user_id", profile.user_id).order("created_at", { ascending: false }).limit(100),
         supabase.from("profiles").select("profit_balance,wallet_balance")
           .eq("user_id", profile.user_id).maybeSingle(),
+        getWithdrawableProfit(profile.user_id),
       ]);
       setTxns(tx || []);
-      setProfitBalance(Number(p?.profit_balance || 0));
+      setProfitBalance(withdrawableProfit);
       setWalletBalance(Number(p?.wallet_balance || 0));
       setLoading(false);
     })();
