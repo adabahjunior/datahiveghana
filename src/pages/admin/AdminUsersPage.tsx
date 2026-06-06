@@ -227,12 +227,65 @@ export default function AdminUsersPage() {
     );
   });
 
+  const downloadPhoneNumbers = (format: "csv" | "xlsx") => {
+    const rows = users
+      .map((u) => ({
+        name: String(u.full_name || "").replace(/"/g, '""'),
+        email: String(u.email || "").replace(/"/g, '""'),
+        phone: String(u.phone || "").replace(/"/g, '""'),
+      }))
+      .filter((r) => r.phone);
+
+    if (rows.length === 0) {
+      toast.error("No phone numbers to export");
+      return;
+    }
+
+    const header = ["Name", "Email", "Phone"];
+    const sep = format === "xlsx" ? "\t" : ",";
+    const lines = [header.join(sep)];
+    for (const r of rows) {
+      lines.push(
+        format === "xlsx"
+          ? `${r.name}\t${r.email}\t${r.phone}`
+          : `"${r.name}","${r.email}","${r.phone}"`,
+      );
+    }
+    const content = lines.join("\n");
+    const blob = new Blob(
+      [format === "xlsx" ? "\ufeff" + content : content],
+      { type: format === "xlsx" ? "application/vnd.ms-excel;charset=utf-8" : "text/csv;charset=utf-8" },
+    );
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const ts = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `user-phone-numbers-${ts}.${format}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${rows.length} phone numbers`);
+  };
+
   return (
     <div className="space-y-5">
-      <div>
-        <h2 className="text-3xl font-bold">Users</h2>
-        <p className="text-muted-foreground mt-1">All users including agents.</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-3xl font-bold">Users</h2>
+          <p className="text-muted-foreground mt-1">All users including agents.</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => downloadPhoneNumbers("csv")}>
+            Download Phones (CSV)
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => downloadPhoneNumbers("xlsx")}>
+            Download Phones (Excel)
+          </Button>
+        </div>
       </div>
+
+
 
       <Card className="p-4">
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(340px,420px)]">
