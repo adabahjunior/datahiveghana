@@ -1,7 +1,7 @@
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Wallet, Receipt, Smartphone, Store, ShoppingBag,
-  Banknote, MessageSquareWarning, Settings, Sun, Moon, LogOut, Menu, Shield, ChevronDown, ChevronRight, Users, Search, WandSparkles, GraduationCap,
+  Banknote, MessageSquareWarning, Settings, Sun, Moon, LogOut, Menu, Shield, ChevronDown, ChevronRight, Users, Search, WandSparkles, GraduationCap, Code2,
 } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -119,6 +119,7 @@ const SidebarContent = ({ onNavigate }: { onNavigate?: () => void }) => {
         <NavItem to="/result-checkers" icon={Search} label="Result Checkers" />
         <NavItem to="/university-forms" icon={GraduationCap} label="University Forms" />
 
+        <NavItem to="/api-docs" icon={Code2} label="Developer API" />
         <NavItem to="/report" icon={MessageSquareWarning} label="Report Issue" />
         <NavItem to="/settings" icon={Settings} label="Settings" />
 

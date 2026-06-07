@@ -45,6 +45,7 @@ import AdminUniversityFormsPage from "./pages/admin/AdminUniversityFormsPage";
 import AdminDataProvidersPage from "./pages/admin/AdminDataProvidersPage";
 import UniversityForms from "./pages/UniversityForms";
 import MyStoreUniversityForms from "./pages/MyStoreUniversityForms";
+import ApiDocs from "./pages/ApiDocs";
 
 const queryClient = new QueryClient();
 
@@ -92,6 +93,7 @@ const App = () => (
               <Route path="/result-checkers" element={<Shell><ResultCheckers /></Shell>} />
               <Route path="/university-forms" element={<Shell><UniversityForms /></Shell>} />
               <Route path="/report" element={<Shell><Report /></Shell>} />
+              <Route path="/api-docs" element={<Shell><ApiDocs /></Shell>} />
               <Route path="/settings" element={<Shell><Settings /></Shell>} />
               <Route path="/admin" element={<AdminShell />}>
                 <Route index element={<Navigate to="/admin/overview" replace />} />
