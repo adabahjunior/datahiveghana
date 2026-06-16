@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { getWithdrawableProfit } from "@/lib/profit";
 
-const MIN = 20;
+const DEFAULT_MIN = 20;
 
 export default function Withdrawal() {
   const { profile, refreshProfile } = useAuth();
@@ -22,10 +22,18 @@ export default function Withdrawal() {
   const [submitting, setSubmitting] = useState(false);
   const [history, setHistory] = useState<any[]>([]);
   const [currentProfit, setCurrentProfit] = useState(0);
+  const [minWithdrawal, setMinWithdrawal] = useState(DEFAULT_MIN);
 
   const loadCurrentProfit = async () => {
     if (!profile?.user_id) return;
     setCurrentProfit(await getWithdrawableProfit(profile.user_id));
+  };
+
+  const loadMin = async () => {
+    const { data } = await supabase.from("app_settings").select("value").eq("key", "min_withdrawal").maybeSingle();
+    const raw: any = data?.value;
+    const n = typeof raw === "number" ? raw : typeof raw === "string" ? parseFloat(raw) : NaN;
+    if (Number.isFinite(n) && n > 0) setMinWithdrawal(n);
   };
 
   const load = async () => {
@@ -38,12 +46,12 @@ export default function Withdrawal() {
     setHistory(data || []);
   };
 
-  useEffect(() => { load(); }, [profile]);
+  useEffect(() => { load(); loadMin(); }, [profile]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const amt = parseFloat(form.amount);
-    if (isNaN(amt) || amt < MIN) { toast.error(`Minimum withdrawal is ${formatGHS(MIN)}`); return; }
+    if (isNaN(amt) || amt < minWithdrawal) { toast.error(`Minimum withdrawal is ${formatGHS(minWithdrawal)}`); return; }
     if (currentProfit > 0 && amt > currentProfit + 0.0001) { toast.error("Amount exceeds profit balance"); return; }
     setSubmitting(true);
     const { data, error } = await supabase.functions.invoke("request-withdrawal", { body: { ...form, amount: amt } });
@@ -82,8 +90,8 @@ export default function Withdrawal() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Amount (min {formatGHS(MIN)})</Label>
-                <Input type="number" step="0.01" min={MIN} required value={form.amount}
+                <Label>Amount (min {formatGHS(minWithdrawal)})</Label>
+                <Input type="number" step="0.01" min={minWithdrawal} required value={form.amount}
                   onChange={(e) => setForm({ ...form, amount: e.target.value })} />
               </div>
               <div className="space-y-2">
