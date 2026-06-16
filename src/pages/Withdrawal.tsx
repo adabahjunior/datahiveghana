@@ -90,8 +90,8 @@ export default function Withdrawal() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Amount (min {formatGHS(MIN)})</Label>
-                <Input type="number" step="0.01" min={MIN} required value={form.amount}
+                <Label>Amount (min {formatGHS(minWithdrawal)})</Label>
+                <Input type="number" step="0.01" min={minWithdrawal} required value={form.amount}
                   onChange={(e) => setForm({ ...form, amount: e.target.value })} />
               </div>
               <div className="space-y-2">
