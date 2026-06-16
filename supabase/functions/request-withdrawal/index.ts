@@ -5,8 +5,19 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const MIN = 20;
+const DEFAULT_MIN = 20;
 const ACTIVE_WITHDRAWAL_STATUSES = new Set(["pending", "approved", "paid"]);
+
+async function getMinWithdrawal(supabase: ReturnType<typeof createClient>): Promise<number> {
+  try {
+    const { data } = await supabase.from("app_settings").select("value").eq("key", "min_withdrawal").maybeSingle();
+    const raw = data?.value;
+    const n = typeof raw === "number" ? raw : typeof raw === "string" ? parseFloat(raw) : NaN;
+    return Number.isFinite(n) && n > 0 ? n : DEFAULT_MIN;
+  } catch {
+    return DEFAULT_MIN;
+  }
+}
 
 const profitFromSaleRow = (row: any) => Math.max(Number(row?.seller_profit || 0), Number(row?.agent_profit || 0), 0);
 
