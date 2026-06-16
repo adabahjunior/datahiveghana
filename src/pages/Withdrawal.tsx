@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { getWithdrawableProfit } from "@/lib/profit";
 
-const MIN = 20;
+const DEFAULT_MIN = 20;
 
 export default function Withdrawal() {
   const { profile, refreshProfile } = useAuth();
