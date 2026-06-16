@@ -79,7 +79,8 @@ Deno.serve(async (req) => {
 
     const { amount, momo_number, momo_name, network } = await req.json();
     const amt = Number(amount);
-    if (isNaN(amt) || amt < MIN) return json({ error: `Min ${MIN} GHS` }, 400);
+    const minWithdrawal = await getMinWithdrawal(supabase);
+    if (isNaN(amt) || amt < minWithdrawal) return json({ error: `Minimum withdrawal is ${minWithdrawal} GHS` }, 400);
     if (!momo_number || !momo_name || !network) return json({ error: "Missing fields" }, 400);
 
     const { data: profile } = await supabase
