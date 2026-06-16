@@ -22,10 +22,18 @@ export default function Withdrawal() {
   const [submitting, setSubmitting] = useState(false);
   const [history, setHistory] = useState<any[]>([]);
   const [currentProfit, setCurrentProfit] = useState(0);
+  const [minWithdrawal, setMinWithdrawal] = useState(DEFAULT_MIN);
 
   const loadCurrentProfit = async () => {
     if (!profile?.user_id) return;
     setCurrentProfit(await getWithdrawableProfit(profile.user_id));
+  };
+
+  const loadMin = async () => {
+    const { data } = await supabase.from("app_settings").select("value").eq("key", "min_withdrawal").maybeSingle();
+    const raw: any = data?.value;
+    const n = typeof raw === "number" ? raw : typeof raw === "string" ? parseFloat(raw) : NaN;
+    if (Number.isFinite(n) && n > 0) setMinWithdrawal(n);
   };
 
   const load = async () => {
