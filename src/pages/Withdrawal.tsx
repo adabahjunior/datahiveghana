@@ -46,12 +46,12 @@ export default function Withdrawal() {
     setHistory(data || []);
   };
 
-  useEffect(() => { load(); }, [profile]);
+  useEffect(() => { load(); loadMin(); }, [profile]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const amt = parseFloat(form.amount);
-    if (isNaN(amt) || amt < MIN) { toast.error(`Minimum withdrawal is ${formatGHS(MIN)}`); return; }
+    if (isNaN(amt) || amt < minWithdrawal) { toast.error(`Minimum withdrawal is ${formatGHS(minWithdrawal)}`); return; }
     if (currentProfit > 0 && amt > currentProfit + 0.0001) { toast.error("Amount exceeds profit balance"); return; }
     setSubmitting(true);
     const { data, error } = await supabase.functions.invoke("request-withdrawal", { body: { ...form, amount: amt } });
