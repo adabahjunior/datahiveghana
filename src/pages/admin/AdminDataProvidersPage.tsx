@@ -38,6 +38,12 @@ const PROVIDER_DOCS: Record<string, { hint: string; defaultBaseUrl: string; auth
     defaultBaseUrl: "https://diceconsultgh.com/api/api_router.php",
     authStyle: "X-API-KEY header",
   },
+  byteboss: {
+    hint: "ByteBoss Data API — Authorization: Bearer <key>. We auto-match bundles by network + size (GB) against /plans, then POST /data.",
+    defaultBaseUrl: "https://byteboss.shop/api/v1",
+    authStyle: "Bearer token",
+  },
+
 };
 
 export default function AdminDataProvidersPage() {
