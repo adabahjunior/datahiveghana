@@ -69,6 +69,11 @@ export async function getActiveProvider(supabase: ReturnType<typeof createClient
       if (!data.base_url) data.base_url = Deno.env.get("SPENDLESS_PURCHASE_URL") || "https://spendless.top/api/purchase";
       if (!data.webhook_url) data.webhook_url = Deno.env.get("SPENDLESS_WEBHOOK_URL") || "";
     }
+    if (data.provider_key === "byteboss" && !data.api_key) {
+      data.api_key = Deno.env.get("BYTEBOSS_API_KEY") || "";
+      if (!data.base_url) data.base_url = "https://byteboss.shop/api/v1";
+    }
+
     return data as ProviderRecord;
   }
 
