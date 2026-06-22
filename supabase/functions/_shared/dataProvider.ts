@@ -200,5 +200,58 @@ export async function callProvider(
     return normalize("diceconsult", raw);
   }
 
+  if (provider.provider_key === "byteboss") {
+    const base = (provider.base_url || "https://byteboss.shop/api/v1").replace(/\/+$/, "");
+    const apiKey = provider.api_key || Deno.env.get("BYTEBOSS_API_KEY") || "";
+    if (!apiKey) {
+      return { ok: false, status: 500, body: { error: "ByteBoss API key not configured" }, reference: null, orderId: null, providerStatus: "failed", balance: null };
+    }
+    const authHeaders = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+      "X-API-Key": apiKey,
+    };
+
+    // 1) Fetch plans and match by network + size_gb
+    const plansRaw = await doFetch(`${base}/plans`, { method: "GET", headers: authHeaders });
+    if (!plansRaw.ok) {
+      return { ok: false, status: plansRaw.status, body: plansRaw.body, reference: null, orderId: null, providerStatus: "failed", balance: null };
+    }
+    const plans: any[] = Array.isArray(plansRaw.body?.plans) ? plansRaw.body.plans : [];
+    const targetGb = toGB(volumeMb);
+    const match = plans.find((p) => {
+      const pNet = String(p.network || "").toLowerCase();
+      const pSize = Number(p.size_gb);
+      return pNet === network && Math.abs(pSize - targetGb) < 0.01;
+    }) || plans.find((p) => String(p.network || "").toLowerCase() === network && Number(p.size_gb) === Math.round(targetGb));
+
+    if (!match?.package_id) {
+      return {
+        ok: false,
+        status: 422,
+        body: { error: `No matching ByteBoss plan for ${network} ${targetGb}GB`, available: plans.length },
+        reference: null, orderId: null, providerStatus: "failed", balance: null,
+      };
+    }
+
+    // 2) Purchase
+    const raw = await doFetch(`${base}/data`, {
+      method: "POST",
+      headers: authHeaders,
+      body: JSON.stringify({ package_id: match.package_id, phone: recipient }),
+    });
+    const order = raw.body?.order || {};
+    return {
+      ok: raw.ok && raw.body?.success !== false && !failedStatuses.has(String(order.status || "").toLowerCase()),
+      status: raw.status,
+      body: raw.body,
+      reference: order.reference || order.order_id || null,
+      orderId: order.provider_order_id || order.order_id || null,
+      providerStatus: String(order.status || (raw.ok ? "processing" : "failed")).toLowerCase(),
+      balance: null,
+    };
+  }
+
   return { ok: false, status: 400, body: { error: `Unknown provider: ${provider.provider_key}` }, reference: null, orderId: null, providerStatus: "failed", balance: null };
 }
+
