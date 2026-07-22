@@ -103,11 +103,8 @@ export default function BuyData() {
     return Number(p.guest_price);
   };
 
-  const handleBuy = async () => {
-    if (!selected || !phone || phone.length < 10) {
-      toast.error("Enter a valid recipient phone number");
-      return;
-    }
+  const proceedPurchase = async () => {
+    setShowDisclaimer(false);
     setPaying(true);
     const { data, error } = await supabase.functions.invoke("purchase-data", {
       body: { package_id: selected.id, recipient_phone: phone },
@@ -121,6 +118,18 @@ export default function BuyData() {
     setSelected(null);
     setPhone("");
     await refreshProfile();
+  };
+
+  const handleBuy = async () => {
+    if (!selected || !phone || phone.length < 10) {
+      toast.error("Enter a valid recipient phone number");
+      return;
+    }
+    if (network === "mtn" && verify.state === "unverified") {
+      setShowDisclaimer(true);
+      return;
+    }
+    await proceedPurchase();
   };
 
   return (
