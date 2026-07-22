@@ -599,13 +599,41 @@ export default function PublicStore() {
               <div className="space-y-2">
                 <Label>Phone Number</Label>
                 <Input placeholder="0244000000" value={phone} onChange={(e) => setPhone(e.target.value)} />
+                {String(selected?.package?.network || "") === "mtn" && phone.replace(/\D/g, "").length >= 10 && (
+                  <div className="text-xs">
+                    {verify.state === "checking" && <span className="text-muted-foreground flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Verifying MTN number…</span>}
+                    {verify.state === "verified" && <Badge className="gap-1 bg-green-600 hover:bg-green-600"><CheckCircle2 className="h-3 w-3" /> Verified MTN number</Badge>}
+                    {verify.state === "unverified" && <Badge variant="destructive" className="gap-1"><AlertTriangle className="h-3 w-3" /> Number could not be verified</Badge>}
+                    {verify.state === "error" && <span className="text-muted-foreground">Verification unavailable — you may still proceed.</span>}
+                  </div>
+                )}
               </div>
             </div>
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setSelected(null)}>Cancel</Button>
-            <Button onClick={handleBuy} disabled={paying}>
+            <Button onClick={handleBuy} disabled={paying || verify.state === "checking"}>
               {paying && <Loader2 className="h-4 w-4 animate-spin" />} Pay with Paystack
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showDisclaimer} onOpenChange={setShowDisclaimer}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-yellow-500" /> Number Not Verified</DialogTitle>
+            <DialogDescription>
+              We couldn't verify this MTN number. If you proceed, delivery may take
+              between <strong>2 hours and 48 hours</strong> while the number is sent
+              for manual verification. You can cancel and double-check the number,
+              or proceed at your own discretion.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDisclaimer(false)}>Cancel Order</Button>
+            <Button onClick={runStoreCheckout} disabled={paying}>
+              {paying && <Loader2 className="h-4 w-4 animate-spin mr-1" />} Proceed Anyway
             </Button>
           </DialogFooter>
         </DialogContent>
