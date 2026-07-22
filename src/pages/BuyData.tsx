@@ -11,7 +11,8 @@ import {
 } from "@/components/ui/dialog";
 import { PageHeader } from "@/components/PageHeader";
 import { formatGHS, formatVolume, networkLabel } from "@/lib/format";
-import { ArrowRight, Loader2, Sparkles } from "lucide-react";
+import { ArrowRight, Loader2, Sparkles, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
 const networkSlugMap: Record<string, "mtn" | "telecel" | "airteltigo_ishare" | "airteltigo_bigtime"> = {
@@ -45,6 +46,23 @@ export default function BuyData() {
   const [selected, setSelected] = useState<any>(null);
   const [phone, setPhone] = useState("");
   const [paying, setPaying] = useState(false);
+  const [verify, setVerify] = useState<{ state: "idle" | "checking" | "verified" | "unverified" | "unsupported" | "error"; message?: string }>({ state: "idle" });
+  const [showDisclaimer, setShowDisclaimer] = useState(false);
+
+  useEffect(() => {
+    if (!selected) { setVerify({ state: "idle" }); return; }
+    const digits = phone.replace(/\D/g, "");
+    if (digits.length < 10) { setVerify({ state: "idle" }); return; }
+    if (network !== "mtn") { setVerify({ state: "unsupported" }); return; }
+    setVerify({ state: "checking" });
+    const t = setTimeout(async () => {
+      const { data, error } = await supabase.functions.invoke("verify-number", { body: { phone: digits, network: "mtn" } });
+      if (error || !data?.success) { setVerify({ state: "error", message: data?.error || error?.message }); return; }
+      if (!data.supported) { setVerify({ state: "unsupported" }); return; }
+      setVerify({ state: data.verified ? "verified" : "unverified", message: data.message });
+    }, 600);
+    return () => clearTimeout(t);
+  }, [phone, selected, network]);
 
   useEffect(() => {
     if (!network) return;
@@ -85,11 +103,8 @@ export default function BuyData() {
     return Number(p.guest_price);
   };
 
-  const handleBuy = async () => {
-    if (!selected || !phone || phone.length < 10) {
-      toast.error("Enter a valid recipient phone number");
-      return;
-    }
+  const proceedPurchase = async () => {
+    setShowDisclaimer(false);
     setPaying(true);
     const { data, error } = await supabase.functions.invoke("purchase-data", {
       body: { package_id: selected.id, recipient_phone: phone },
@@ -103,6 +118,18 @@ export default function BuyData() {
     setSelected(null);
     setPhone("");
     await refreshProfile();
+  };
+
+  const handleBuy = async () => {
+    if (!selected || !phone || phone.length < 10) {
+      toast.error("Enter a valid recipient phone number");
+      return;
+    }
+    if (network === "mtn" && verify.state === "unverified") {
+      setShowDisclaimer(true);
+      return;
+    }
+    await proceedPurchase();
   };
 
   return (
@@ -175,14 +202,42 @@ export default function BuyData() {
               <div className="space-y-2">
                 <Label htmlFor="phone">Recipient Phone Number</Label>
                 <Input id="phone" placeholder="0244000000" value={phone} onChange={(e) => setPhone(e.target.value)} />
+                {network === "mtn" && phone.replace(/\D/g, "").length >= 10 && (
+                  <div className="text-xs">
+                    {verify.state === "checking" && <span className="text-muted-foreground flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Verifying MTN number…</span>}
+                    {verify.state === "verified" && <Badge variant="default" className="gap-1 bg-green-600 hover:bg-green-600"><CheckCircle2 className="h-3 w-3" /> Verified MTN number</Badge>}
+                    {verify.state === "unverified" && <Badge variant="destructive" className="gap-1"><AlertTriangle className="h-3 w-3" /> Number could not be verified</Badge>}
+                    {verify.state === "error" && <span className="text-muted-foreground">Verification unavailable — you may still proceed.</span>}
+                  </div>
+                )}
               </div>
               <p className="text-xs text-muted-foreground">Paid from wallet. Balance: {formatGHS(profile?.wallet_balance || 0)}</p>
             </div>
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setSelected(null)}>Cancel</Button>
-            <Button onClick={handleBuy} disabled={paying}>
+            <Button onClick={handleBuy} disabled={paying || verify.state === "checking"}>
               {paying && <Loader2 className="h-4 w-4 animate-spin" />} Confirm & Pay from Wallet
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showDisclaimer} onOpenChange={setShowDisclaimer}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-yellow-500" /> Number Not Verified</DialogTitle>
+            <DialogDescription>
+              We couldn't verify this MTN number. If you proceed, delivery may take
+              between <strong>2 hours and 48 hours</strong> while the number is sent
+              for manual verification. You can cancel and double-check the number, or
+              proceed at your own discretion.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDisclaimer(false)}>Cancel Order</Button>
+            <Button onClick={proceedPurchase} disabled={paying}>
+              {paying && <Loader2 className="h-4 w-4 animate-spin mr-1" />} Proceed Anyway
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -50,3 +50,7 @@ verify_jwt = true
 
 [functions.admin-manual-topup]
 verify_jwt = true
+
+[functions.verify-number]
+verify_jwt = false
+

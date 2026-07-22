@@ -55,6 +55,37 @@ const DICE_NETWORK_MAP: Record<string, string> = {
   airteltigo_bigtime: "BigTime",
 };
 
+const SWIFTDATA_NETWORK_MAP: Record<string, string> = {
+  mtn: "yello",
+  telecel: "telecel",
+  airteltigo_ishare: "at_ishare",
+  airteltigo_bigtime: "at_bigtime",
+};
+
+export const SWIFTDATA_DEFAULT_BASE = "https://ihrvvniomtoofrjkmalb.supabase.co/functions/v1/api";
+
+export async function verifyNumberSwiftData(phone: string, apiKey?: string): Promise<{ verified: boolean; status: string; message: string; raw: any } | { error: string }> {
+  const key = apiKey || Deno.env.get("SWIFTDATA_API_KEY") || "";
+  if (!key) return { error: "SwiftData key not configured" };
+  try {
+    const res = await fetch(`${SWIFTDATA_DEFAULT_BASE}/v1/verify-number`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+      body: JSON.stringify({ phone }),
+    });
+    const body = await res.json().catch(() => ({}));
+    const r = Array.isArray(body?.results) ? body.results[0] : null;
+    return {
+      verified: !!r?.verified,
+      status: String(r?.status || (r?.verified ? "verified" : "unverified")),
+      message: String(r?.message || body?.error || ""),
+      raw: body,
+    };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
 export async function getActiveProvider(supabase: ReturnType<typeof createClient>): Promise<ProviderRecord> {
   const { data } = await supabase
     .from("data_provider_settings")
@@ -254,6 +285,35 @@ export async function callProvider(
       orderId: order.provider_order_id || order.order_id || null,
       providerStatus: String(order.status || (raw.ok ? "processing" : "failed")).toLowerCase(),
       balance: null,
+    };
+  }
+
+  if (provider.provider_key === "swiftdata") {
+    const base = (provider.base_url || SWIFTDATA_DEFAULT_BASE).replace(/\/+$/, "");
+    const apiKey = provider.api_key || Deno.env.get("SWIFTDATA_API_KEY") || "";
+    if (!apiKey) {
+      return { ok: false, status: 500, body: { error: "SwiftData API key not configured" }, reference: null, orderId: null, providerStatus: "failed", balance: null };
+    }
+    const networkParam = SWIFTDATA_NETWORK_MAP[network];
+    if (!networkParam) {
+      return { ok: false, status: 400, body: { error: "Unsupported network for SwiftData" }, reference: null, orderId: null, providerStatus: "failed", balance: null };
+    }
+    const raw = await doFetch(`${base}/v1/buy-data`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({ phone: recipient, network: networkParam, size_gb: toGB(volumeMb) }),
+    });
+    const body = raw.body || {};
+    const order = body.order || body.data || {};
+    const status = String(order.status || body.status || (raw.ok && body.success ? "processing" : "failed")).toLowerCase();
+    return {
+      ok: raw.ok && body.success !== false && !failedStatuses.has(status),
+      status: raw.status,
+      body,
+      reference: order.reference || body.reference || order.order_id || null,
+      orderId: order.order_id || order.id || null,
+      providerStatus: status,
+      balance: body.balance != null ? String(body.balance) : null,
     };
   }
 
