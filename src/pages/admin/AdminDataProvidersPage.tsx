@@ -43,6 +43,11 @@ const PROVIDER_DOCS: Record<string, { hint: string; defaultBaseUrl: string; auth
     defaultBaseUrl: "https://byteboss.shop/api/v1",
     authStyle: "Bearer token",
   },
+  swiftdata: {
+    hint: "SwiftData (Primary) — Bearer token. POST /v1/buy-data with {phone, network, size_gb}. Supports MTN number verification via /v1/verify-number.",
+    defaultBaseUrl: "https://ihrvvniomtoofrjkmalb.supabase.co/functions/v1/api",
+    authStyle: "Bearer token",
+  },
 
 };
 
