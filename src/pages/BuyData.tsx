@@ -46,6 +46,23 @@ export default function BuyData() {
   const [selected, setSelected] = useState<any>(null);
   const [phone, setPhone] = useState("");
   const [paying, setPaying] = useState(false);
+  const [verify, setVerify] = useState<{ state: "idle" | "checking" | "verified" | "unverified" | "unsupported" | "error"; message?: string }>({ state: "idle" });
+  const [showDisclaimer, setShowDisclaimer] = useState(false);
+
+  useEffect(() => {
+    if (!selected) { setVerify({ state: "idle" }); return; }
+    const digits = phone.replace(/\D/g, "");
+    if (digits.length < 10) { setVerify({ state: "idle" }); return; }
+    if (network !== "mtn") { setVerify({ state: "unsupported" }); return; }
+    setVerify({ state: "checking" });
+    const t = setTimeout(async () => {
+      const { data, error } = await supabase.functions.invoke("verify-number", { body: { phone: digits, network: "mtn" } });
+      if (error || !data?.success) { setVerify({ state: "error", message: data?.error || error?.message }); return; }
+      if (!data.supported) { setVerify({ state: "unsupported" }); return; }
+      setVerify({ state: data.verified ? "verified" : "unverified", message: data.message });
+    }, 600);
+    return () => clearTimeout(t);
+  }, [phone, selected, network]);
 
   useEffect(() => {
     if (!network) return;
