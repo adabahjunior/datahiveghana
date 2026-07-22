@@ -11,7 +11,8 @@ import {
 } from "@/components/ui/dialog";
 import { PageHeader } from "@/components/PageHeader";
 import { formatGHS, formatVolume, networkLabel } from "@/lib/format";
-import { ArrowRight, Loader2, Sparkles } from "lucide-react";
+import { ArrowRight, Loader2, Sparkles, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
 const networkSlugMap: Record<string, "mtn" | "telecel" | "airteltigo_ishare" | "airteltigo_bigtime"> = {
