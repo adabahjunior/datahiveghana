@@ -9,7 +9,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { formatGHS, formatVolume, networkLabel, calcPaystackCharge } from "@/lib/format";
 import { startPaystackCheckout } from "@/lib/paystack";
 import { toast } from "sonner";
-import { Loader2, MessageCircle, Phone } from "lucide-react";
+import { Loader2, MessageCircle, Phone, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Sun, Moon } from "lucide-react";
 import "@/styles/store-experience.css";
