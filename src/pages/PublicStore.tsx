@@ -253,6 +253,17 @@ export default function PublicStore() {
     }
   };
 
+  const handleBuy = async () => {
+    if (!selected || !phone || phone.length < 10) { toast.error("Enter a valid phone number"); return; }
+    if (!paystackPublicKey) { toast.error("Paystack is not configured"); return; }
+    const net = String(selected?.package?.network || "");
+    if (net === "mtn" && verify.state === "unverified") {
+      setShowDisclaimer(true);
+      return;
+    }
+    await runStoreCheckout();
+  };
+
   const handleBuyChecker = async () => {
     const qty = Number(checkerQty);
     if (!selectedChecker || !checkerPhone || checkerPhone.length < 10) { toast.error("Enter a valid phone number"); return; }
