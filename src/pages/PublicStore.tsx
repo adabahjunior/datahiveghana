@@ -208,10 +208,8 @@ export default function PublicStore() {
 
   const filtered = filter === "all" ? items : items.filter((i) => i.package.network === filter);
 
-  const handleBuy = async () => {
-    if (!selected || !phone || phone.length < 10) { toast.error("Enter a valid phone number"); return; }
-    if (!paystackPublicKey) { toast.error("Paystack is not configured"); return; }
-
+  const runStoreCheckout = async () => {
+    setShowDisclaimer(false);
     setPaying(true);
     try {
       const sellingPrice = Number(selected.selling_price);
