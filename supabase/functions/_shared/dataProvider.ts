@@ -288,6 +288,35 @@ export async function callProvider(
     };
   }
 
+  if (provider.provider_key === "swiftdata") {
+    const base = (provider.base_url || SWIFTDATA_DEFAULT_BASE).replace(/\/+$/, "");
+    const apiKey = provider.api_key || Deno.env.get("SWIFTDATA_API_KEY") || "";
+    if (!apiKey) {
+      return { ok: false, status: 500, body: { error: "SwiftData API key not configured" }, reference: null, orderId: null, providerStatus: "failed", balance: null };
+    }
+    const networkParam = SWIFTDATA_NETWORK_MAP[network];
+    if (!networkParam) {
+      return { ok: false, status: 400, body: { error: "Unsupported network for SwiftData" }, reference: null, orderId: null, providerStatus: "failed", balance: null };
+    }
+    const raw = await doFetch(`${base}/v1/buy-data`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({ phone: recipient, network: networkParam, size_gb: toGB(volumeMb) }),
+    });
+    const body = raw.body || {};
+    const order = body.order || body.data || {};
+    const status = String(order.status || body.status || (raw.ok && body.success ? "processing" : "failed")).toLowerCase();
+    return {
+      ok: raw.ok && body.success !== false && !failedStatuses.has(status),
+      status: raw.status,
+      body,
+      reference: order.reference || body.reference || order.order_id || null,
+      orderId: order.order_id || order.id || null,
+      providerStatus: status,
+      balance: body.balance != null ? String(body.balance) : null,
+    };
+  }
+
   return { ok: false, status: 400, body: { error: `Unknown provider: ${provider.provider_key}` }, reference: null, orderId: null, providerStatus: "failed", balance: null };
 }
 
