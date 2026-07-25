@@ -97,8 +97,8 @@ export default function ResultCheckers() {
       toast.error("Enter a valid phone number");
       return;
     }
-    if (!Number.isInteger(qty) || qty <= 0 || qty > 50) {
-      toast.error("Quantity must be between 1 and 50");
+    if (!Number.isInteger(qty) || qty <= 0 || qty > 20) {
+      toast.error("Quantity must be between 1 and 20");
       return;
     }
 
@@ -235,7 +235,7 @@ export default function ResultCheckers() {
               </div>
               <div className="space-y-2">
                 <Label>Quantity</Label>
-                <Input type="number" min="1" max="50" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+                <Input type="number" min="1" max="20" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
               </div>
               <div className="space-y-2">
                 <Label>Phone Number</Label>
