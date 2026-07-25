@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { bytebossPlaceCheckerOrder } from "../_shared/dataProvider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -7,7 +8,7 @@ const corsHeaders = {
 
 const toQuantity = (value: unknown): number | null => {
   const n = Number(value);
-  if (!Number.isInteger(n) || n <= 0 || n > 50) return null;
+  if (!Number.isInteger(n) || n <= 0 || n > 20) return null;
   return n;
 };
 
