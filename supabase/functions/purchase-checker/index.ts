@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
     const qty = toQuantity(quantity);
     if (!checker_id || typeof checker_id !== "string") return fail("checker_id is required", "INVALID_INPUT");
     if (phone.length < 10) return fail("Valid recipient_phone is required", "INVALID_INPUT");
-    if (!qty) return fail("quantity must be an integer between 1 and 50", "INVALID_INPUT");
+    if (!qty) return fail("quantity must be an integer between 1 and 20", "INVALID_INPUT");
 
     const [{ data: checker }, { data: byUserProfile }, { data: roles }] = await Promise.all([
       supabase.from("checker_products").select("*").eq("id", checker_id).eq("is_active", true).maybeSingle(),
@@ -93,6 +93,30 @@ Deno.serve(async (req) => {
 
     if (debitError || !debitedProfile) return fail("Wallet debit failed", "WALLET_DEBIT_FAILED");
 
+    // Dispatch to ByteBoss
+    let providerOrderId: string | null = null;
+    let providerStatus = "pending";
+    let orderStatus: "processing" | "pending" = "pending";
+    let dispatchNote = "Direct dashboard checker purchase. Awaiting ByteBoss dispatch.";
+
+    if (checker.byteboss_product_id) {
+      const dispatch = await bytebossPlaceCheckerOrder({
+        product_id: String(checker.byteboss_product_id),
+        phone,
+        quantity: qty,
+      });
+      providerOrderId = dispatch.orderId;
+      providerStatus = dispatch.providerStatus || (dispatch.ok ? "processing" : "failed");
+      if (dispatch.ok) {
+        orderStatus = "processing";
+        dispatchNote = `ByteBoss order accepted (${providerOrderId || "no id"}). Voucher codes will be delivered once processed.`;
+      } else {
+        dispatchNote = `ByteBoss dispatch failed: ${JSON.stringify(dispatch.raw).slice(0, 400)}`;
+      }
+    } else {
+      dispatchNote = "No ByteBoss product mapped. Admin will fulfil manually.";
+    }
+
     const { data: order, error: orderError } = await supabase
       .from("checker_orders")
       .insert({
@@ -106,12 +130,14 @@ Deno.serve(async (req) => {
         agent_profit: 0,
         seller_profit: 0,
         upstream_agent_profit: 0,
-        status: "delivered",
+        status: orderStatus,
         paid_via: "wallet",
+        provider_order_id: providerOrderId,
+        provider_status: providerStatus,
         checker_serial: null,
         checker_pin: null,
         checker_codes: null,
-        notes: "Direct dashboard checker purchase. Checker details will be delivered via SMS.",
+        notes: dispatchNote,
       })
       .select("id")
       .single();

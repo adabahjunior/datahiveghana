@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { bytebossPlaceCheckerOrder } from "../_shared/dataProvider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -29,7 +30,7 @@ const verifyPaystackReference = async (reference: string, secretKey: string) => 
 
 const toQuantity = (value: unknown): number | null => {
   const n = Number(value);
-  if (!Number.isInteger(n) || n <= 0 || n > 50) return null;
+  if (!Number.isInteger(n) || n <= 0 || n > 20) return null;
   return n;
 };
 
@@ -194,6 +195,29 @@ Deno.serve(async (req) => {
     if (verifiedPayment.currency !== "GHS") return json({ error: "Invalid payment currency" }, 400);
     if (paidAmount + 0.01 < expectedTotal) return json({ error: "Paid amount is lower than expected" }, 400);
 
+    let providerOrderId: string | null = null;
+    let providerStatus = "pending";
+    let orderStatus: "processing" | "pending" = "pending";
+    let dispatchNote = "Store checker purchase. Awaiting ByteBoss dispatch.";
+
+    if (checker.byteboss_product_id) {
+      const dispatch = await bytebossPlaceCheckerOrder({
+        product_id: String(checker.byteboss_product_id),
+        phone,
+        quantity: qty,
+      });
+      providerOrderId = dispatch.orderId;
+      providerStatus = dispatch.providerStatus || (dispatch.ok ? "processing" : "failed");
+      if (dispatch.ok) {
+        orderStatus = "processing";
+        dispatchNote = `ByteBoss order accepted (${providerOrderId || "no id"}). Voucher codes will be delivered once processed.`;
+      } else {
+        dispatchNote = `ByteBoss dispatch failed: ${JSON.stringify(dispatch.raw).slice(0, 400)}`;
+      }
+    } else {
+      dispatchNote = "No ByteBoss product mapped. Admin will fulfil manually.";
+    }
+
     const { data: order, error: orderError } = await supabase.from("checker_orders").insert({
       store_id: store.id,
       checker_id: checker.id,
@@ -205,13 +229,15 @@ Deno.serve(async (req) => {
       agent_profit: totalProfit,
       seller_profit: Number((sellerProfit * qty).toFixed(2)),
       upstream_agent_profit: Number((parentAgentProfit * qty).toFixed(2)),
-      status: "delivered",
+      status: orderStatus,
       paid_via: "paystack",
       paystack_reference: reference,
+      provider_order_id: providerOrderId,
+      provider_status: providerStatus,
       checker_serial: null,
       checker_pin: null,
       checker_codes: null,
-      notes: `Store checker purchase. Checker details will be delivered via SMS.`,
+      notes: dispatchNote,
     }).select().single();
 
     if (orderError || !order) return json({ error: orderError?.message || "Order creation failed" }, 500);
