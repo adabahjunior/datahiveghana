@@ -27,6 +27,7 @@ const initialCheckerForm = {
   name: "",
   user_price: 0,
   agent_price: 0,
+  byteboss_product_id: "",
   is_active: true,
 };
 
@@ -218,6 +219,7 @@ export default function AdminPricingPage() {
           name: checkerForm.name,
           user_price: Number(checkerForm.user_price),
           agent_price: Number(checkerForm.agent_price),
+          byteboss_product_id: checkerForm.byteboss_product_id?.trim() || null,
           is_active: !!checkerForm.is_active,
         })
         .eq("id", editingCheckerId);
@@ -231,6 +233,7 @@ export default function AdminPricingPage() {
         name: checkerForm.name,
         user_price: Number(checkerForm.user_price),
         agent_price: Number(checkerForm.agent_price),
+        byteboss_product_id: checkerForm.byteboss_product_id?.trim() || null,
         is_active: !!checkerForm.is_active,
         display_order: nextOrder,
       });
@@ -251,8 +254,20 @@ export default function AdminPricingPage() {
       name: checker.name,
       user_price: Number(checker.user_price),
       agent_price: Number(checker.agent_price),
+      byteboss_product_id: checker.byteboss_product_id || "",
       is_active: !!checker.is_active,
     });
+  };
+
+  const loadBytebossCheckers = async () => {
+    const { data, error } = await supabase.functions.invoke("sync-checker-order", { body: { action: "list_products" } });
+    if (error || !data?.ok) {
+      toast.error(data?.error || error?.message || "Could not fetch ByteBoss checkers");
+      return;
+    }
+    const list = (data.products || []).map((p: any) => `${p.product_id || p.id} — ${p.name || p.title || p.exam || ""}`).join("\n");
+    toast.success(`ByteBoss products:\n${list || "None"}`);
+    console.log("ByteBoss checkers", data.products);
   };
 
   const removeChecker = async (id: string) => {
