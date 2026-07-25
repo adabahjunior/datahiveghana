@@ -657,7 +657,7 @@ export default function PublicStore() {
               </div>
               <div className="space-y-2">
                 <Label>Quantity</Label>
-                <Input type="number" min="1" max="50" value={checkerQty} onChange={(e) => setCheckerQty(e.target.value)} />
+                <Input type="number" min="1" max="20" value={checkerQty} onChange={(e) => setCheckerQty(e.target.value)} />
               </div>
               <div className="space-y-2">
                 <Label>Phone Number</Label>

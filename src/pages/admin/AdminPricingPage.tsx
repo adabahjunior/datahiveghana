@@ -27,6 +27,7 @@ const initialCheckerForm = {
   name: "",
   user_price: 0,
   agent_price: 0,
+  byteboss_product_id: "",
   is_active: true,
 };
 
@@ -218,6 +219,7 @@ export default function AdminPricingPage() {
           name: checkerForm.name,
           user_price: Number(checkerForm.user_price),
           agent_price: Number(checkerForm.agent_price),
+          byteboss_product_id: checkerForm.byteboss_product_id?.trim() || null,
           is_active: !!checkerForm.is_active,
         })
         .eq("id", editingCheckerId);
@@ -231,6 +233,7 @@ export default function AdminPricingPage() {
         name: checkerForm.name,
         user_price: Number(checkerForm.user_price),
         agent_price: Number(checkerForm.agent_price),
+        byteboss_product_id: checkerForm.byteboss_product_id?.trim() || null,
         is_active: !!checkerForm.is_active,
         display_order: nextOrder,
       });
@@ -251,8 +254,20 @@ export default function AdminPricingPage() {
       name: checker.name,
       user_price: Number(checker.user_price),
       agent_price: Number(checker.agent_price),
+      byteboss_product_id: checker.byteboss_product_id || "",
       is_active: !!checker.is_active,
     });
+  };
+
+  const loadBytebossCheckers = async () => {
+    const { data, error } = await supabase.functions.invoke("sync-checker-order", { body: { action: "list_products" } });
+    if (error || !data?.ok) {
+      toast.error(data?.error || error?.message || "Could not fetch ByteBoss checkers");
+      return;
+    }
+    const list = (data.products || []).map((p: any) => `${p.product_id || p.id} — ${p.name || p.title || p.exam || ""}`).join("\n");
+    toast.success(`ByteBoss products:\n${list || "None"}`);
+    console.log("ByteBoss checkers", data.products);
   };
 
   const removeChecker = async (id: string) => {
@@ -339,12 +354,21 @@ export default function AdminPricingPage() {
             <Label>Agent Base Price</Label>
             <Input type="number" step="0.01" value={checkerForm.agent_price} onChange={(e) => setCheckerForm({ ...checkerForm, agent_price: e.target.value })} required />
           </div>
+          <div className="space-y-2">
+            <Label>ByteBoss Product ID</Label>
+            <Input
+              value={checkerForm.byteboss_product_id}
+              onChange={(e) => setCheckerForm({ ...checkerForm, byteboss_product_id: e.target.value })}
+              placeholder="e.g. wassce-2024"
+            />
+          </div>
           <div className="flex items-center gap-3 mt-7">
             <Switch checked={!!checkerForm.is_active} onCheckedChange={(checked) => setCheckerForm({ ...checkerForm, is_active: checked })} />
             <span className="text-sm">Active</span>
           </div>
-          <div className="flex items-end gap-2">
+          <div className="flex items-end gap-2 flex-wrap">
             <Button type="submit">{editingCheckerId ? "Update" : "Add"} Checker</Button>
+            <Button type="button" variant="secondary" onClick={loadBytebossCheckers}>Fetch ByteBoss IDs</Button>
             {editingCheckerId && (
               <Button type="button" variant="outline" onClick={() => { setEditingCheckerId(null); setCheckerForm(initialCheckerForm); }}>
                 Cancel
@@ -360,8 +384,9 @@ export default function AdminPricingPage() {
             <TableRow>
               <TableHead>Exam</TableHead>
               <TableHead>Name</TableHead>
-              <TableHead>User/Admin Price</TableHead>
-              <TableHead>Agent Base Price</TableHead>
+              <TableHead>User Price</TableHead>
+              <TableHead>Agent Base</TableHead>
+              <TableHead>ByteBoss ID</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
@@ -369,7 +394,7 @@ export default function AdminPricingPage() {
           <TableBody>
             {checkers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-10">
+                <TableCell colSpan={7} className="text-center text-sm text-muted-foreground py-10">
                   No checker products yet.
                 </TableCell>
               </TableRow>
@@ -379,6 +404,7 @@ export default function AdminPricingPage() {
                 <TableCell>{checker.name}</TableCell>
                 <TableCell>{checker.user_price}</TableCell>
                 <TableCell>{checker.agent_price}</TableCell>
+                <TableCell className="text-xs">{checker.byteboss_product_id || <span className="text-destructive">unset</span>}</TableCell>
                 <TableCell>{checker.is_active ? "Active" : "Inactive"}</TableCell>
                 <TableCell className="space-x-2">
                   <Button size="sm" variant="outline" onClick={() => editChecker(checker)}>Edit</Button>

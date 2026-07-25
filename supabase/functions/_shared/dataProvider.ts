@@ -86,6 +86,69 @@ export async function verifyNumberSwiftData(phone: string, apiKey?: string): Pro
   }
 }
 
+// ============ ByteBoss Result Checkers ============
+export const BYTEBOSS_DEFAULT_BASE = "https://byteboss.shop/api/v1";
+
+function bytebossHeaders(apiKey: string) {
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${apiKey}`,
+    "X-API-Key": apiKey,
+  };
+}
+
+export async function bytebossListCheckers(): Promise<{ ok: boolean; status: number; products: any[]; raw: any }> {
+  const apiKey = Deno.env.get("BYTEBOSS_API_KEY") || "";
+  if (!apiKey) return { ok: false, status: 500, products: [], raw: { error: "BYTEBOSS_API_KEY not configured" } };
+  try {
+    const res = await fetch(`${BYTEBOSS_DEFAULT_BASE}/result-checkers`, { method: "GET", headers: bytebossHeaders(apiKey) });
+    const body = await res.json().catch(() => ({}));
+    const products = Array.isArray(body?.products) ? body.products
+      : Array.isArray(body?.data) ? body.data
+      : Array.isArray(body) ? body : [];
+    return { ok: res.ok, status: res.status, products, raw: body };
+  } catch (e) {
+    return { ok: false, status: 500, products: [], raw: { error: (e as Error).message } };
+  }
+}
+
+export async function bytebossPlaceCheckerOrder(input: { product_id: string; phone: string; quantity: number }): Promise<{ ok: boolean; status: number; orderId: string | null; providerStatus: string; raw: any }> {
+  const apiKey = Deno.env.get("BYTEBOSS_API_KEY") || "";
+  if (!apiKey) return { ok: false, status: 500, orderId: null, providerStatus: "failed", raw: { error: "BYTEBOSS_API_KEY not configured" } };
+  try {
+    const res = await fetch(`${BYTEBOSS_DEFAULT_BASE}/result-checkers`, {
+      method: "POST",
+      headers: bytebossHeaders(apiKey),
+      body: JSON.stringify({ product_id: input.product_id, phone: input.phone, quantity: input.quantity }),
+    });
+    const body = await res.json().catch(() => ({}));
+    const order = body?.order || body?.data || body || {};
+    const orderId = order.order_id || order.id || body.order_id || null;
+    const status = String(order.status || body.status || (res.ok ? "processing" : "failed")).toLowerCase();
+    return { ok: res.ok && body?.success !== false, status: res.status, orderId: orderId ? String(orderId) : null, providerStatus: status, raw: body };
+  } catch (e) {
+    return { ok: false, status: 500, orderId: null, providerStatus: "failed", raw: { error: (e as Error).message } };
+  }
+}
+
+export async function bytebossGetCheckerOrder(orderId: string): Promise<{ ok: boolean; status: number; providerStatus: string; codes: any; raw: any }> {
+  const apiKey = Deno.env.get("BYTEBOSS_API_KEY") || "";
+  if (!apiKey) return { ok: false, status: 500, providerStatus: "failed", codes: null, raw: { error: "BYTEBOSS_API_KEY not configured" } };
+  try {
+    const res = await fetch(`${BYTEBOSS_DEFAULT_BASE}/result-checker-orders/${encodeURIComponent(orderId)}`, {
+      method: "GET",
+      headers: bytebossHeaders(apiKey),
+    });
+    const body = await res.json().catch(() => ({}));
+    const order = body?.order || body?.data || body || {};
+    const status = String(order.status || body.status || (res.ok ? "processing" : "failed")).toLowerCase();
+    const codes = order.codes || order.vouchers || order.voucher_codes || body.codes || null;
+    return { ok: res.ok, status: res.status, providerStatus: status, codes, raw: body };
+  } catch (e) {
+    return { ok: false, status: 500, providerStatus: "failed", codes: null, raw: { error: (e as Error).message } };
+  }
+}
+
 export async function getActiveProvider(supabase: ReturnType<typeof createClient>): Promise<ProviderRecord> {
   const { data } = await supabase
     .from("data_provider_settings")

@@ -158,6 +158,8 @@ export type Database = {
           notes: string | null
           paid_via: string
           paystack_reference: string | null
+          provider_order_id: string | null
+          provider_status: string | null
           quantity: number
           recipient_phone: string
           seller_profit: number
@@ -181,6 +183,8 @@ export type Database = {
           notes?: string | null
           paid_via?: string
           paystack_reference?: string | null
+          provider_order_id?: string | null
+          provider_status?: string | null
           quantity?: number
           recipient_phone: string
           seller_profit?: number
@@ -204,6 +208,8 @@ export type Database = {
           notes?: string | null
           paid_via?: string
           paystack_reference?: string | null
+          provider_order_id?: string | null
+          provider_status?: string | null
           quantity?: number
           recipient_phone?: string
           seller_profit?: number
@@ -232,6 +238,7 @@ export type Database = {
       checker_products: {
         Row: {
           agent_price: number
+          byteboss_product_id: string | null
           created_at: string
           display_order: number
           exam_type: string
@@ -243,6 +250,7 @@ export type Database = {
         }
         Insert: {
           agent_price: number
+          byteboss_product_id?: string | null
           created_at?: string
           display_order?: number
           exam_type: string
@@ -254,6 +262,7 @@ export type Database = {
         }
         Update: {
           agent_price?: number
+          byteboss_product_id?: string | null
           created_at?: string
           display_order?: number
           exam_type?: string
