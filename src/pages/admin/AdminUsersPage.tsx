@@ -13,6 +13,7 @@ import { formatGHS } from "@/lib/format";
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<any[]>([]);
   const [search, setSearch] = useState("");
+  const [frequentLoading, setFrequentLoading] = useState(false);
   const [manualCode, setManualCode] = useState("");
   const [manualAmount, setManualAmount] = useState("");
   const [manualLookupLoading, setManualLookupLoading] = useState(false);
