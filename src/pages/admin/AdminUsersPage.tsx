@@ -12,6 +12,7 @@ import { formatGHS } from "@/lib/format";
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<any[]>([]);
+  const [adminIds, setAdminIds] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
   const [frequentLoading, setFrequentLoading] = useState(false);
   const [manualCode, setManualCode] = useState("");
@@ -26,8 +27,28 @@ export default function AdminUsersPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
 
   const load = async () => {
-    const { data } = await supabase.from("profiles").select("*").order("created_at", { ascending: false }).limit(1000);
+    const [{ data }, { data: roles }] = await Promise.all([
+      supabase.from("profiles").select("*").order("created_at", { ascending: false }).limit(1000),
+      supabase.from("user_roles").select("user_id,role").eq("role", "admin"),
+    ]);
     setUsers(data || []);
+    setAdminIds(new Set((roles || []).map((r: any) => r.user_id)));
+  };
+
+  const setAdminAccess = async (user: any, makeAdmin: boolean) => {
+    setUpdatingUserId(user.user_id);
+    const { data, error } = await supabase.functions.invoke("admin-manage-user", {
+      body: { action: makeAdmin ? "grant_admin" : "revoke_admin", user_id: user.user_id },
+    });
+    setUpdatingUserId(null);
+
+    if (error || !data?.success) {
+      toast.error(data?.error || error?.message || "Failed to update admin access");
+      return;
+    }
+
+    toast.success(makeAdmin ? "Admin access granted." : "Admin access removed.");
+    load();
   };
 
   useEffect(() => {
