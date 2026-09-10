@@ -33,6 +33,7 @@ import NotFound from "./pages/NotFound";
 import AdminLayout from "./components/admin/AdminLayout";
 import AdminOverviewPage from "./pages/admin/AdminOverviewPage";
 import AdminOrdersPage from "./pages/admin/AdminOrdersPage";
+import AdminTransactionsPage from "./pages/admin/AdminTransactionsPage";
 import AdminCheckerOrdersPage from "./pages/admin/AdminCheckerOrdersPage";
 import AdminAgentsPage from "./pages/admin/AdminAgentsPage";
 import AdminSubAgentsPage from "./pages/admin/AdminSubAgentsPage";
@@ -99,6 +100,7 @@ const App = () => (
                 <Route index element={<Navigate to="/admin/overview" replace />} />
                 <Route path="overview" element={<AdminOverviewPage />} />
                 <Route path="orders" element={<AdminOrdersPage />} />
+                <Route path="transactions" element={<AdminTransactionsPage />} />
                 <Route path="checker-orders" element={<AdminCheckerOrdersPage />} />
                 <Route path="agents" element={<AdminAgentsPage />} />
                 <Route path="subagents" element={<AdminSubAgentsPage />} />

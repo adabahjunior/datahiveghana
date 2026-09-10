@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { Bell, CreditCard, GraduationCap, LayoutDashboard, Package, Plug, Settings, ShoppingCart, Users, Wallet, Wrench } from "lucide-react";
+import { Bell, CreditCard, GraduationCap, LayoutDashboard, Package, Plug, Receipt, Settings, ShoppingCart, Users, Wallet, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
@@ -8,6 +8,7 @@ import { BrandLogo } from "@/components/BrandLogo";
 const navItems = [
   { to: "/admin/overview", label: "Overview", icon: LayoutDashboard },
   { to: "/admin/orders", label: "Orders", icon: ShoppingCart },
+  { to: "/admin/transactions", label: "Transactions", icon: Receipt },
   { to: "/admin/checker-orders", label: "Checker Orders", icon: Package },
   { to: "/admin/agents", label: "Agents", icon: Users },
   { to: "/admin/subagents", label: "Subagents", icon: Users },

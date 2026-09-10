@@ -5,7 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-type Action = "reset_password" | "ban" | "unban";
+type Action = "reset_password" | "ban" | "unban" | "grant_admin" | "revoke_admin";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -81,6 +81,25 @@ Deno.serve(async (req) => {
         .eq("user_id", user_id);
 
       if (profileError) return okFail(profileError.message, "UNBAN_FAILED");
+      return ok({ success: true });
+    }
+
+    if (action === "grant_admin") {
+      const { error: grantError } = await supabase
+        .from("user_roles")
+        .upsert({ user_id, role: "admin" }, { onConflict: "user_id,role" });
+      if (grantError) return okFail(grantError.message, "GRANT_ADMIN_FAILED");
+      return ok({ success: true });
+    }
+
+    if (action === "revoke_admin") {
+      if (user_id === authData.user.id) return okFail("You cannot remove your own admin access", "INVALID_INPUT");
+      const { error: revokeError } = await supabase
+        .from("user_roles")
+        .delete()
+        .eq("user_id", user_id)
+        .eq("role", "admin");
+      if (revokeError) return okFail(revokeError.message, "REVOKE_ADMIN_FAILED");
       return ok({ success: true });
     }
 
