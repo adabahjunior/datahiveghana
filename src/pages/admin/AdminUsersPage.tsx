@@ -456,7 +456,10 @@ export default function AdminUsersPage() {
                 <TableCell>{u.full_name || "-"}</TableCell>
                 <TableCell>{u.email}</TableCell>
                 <TableCell className="font-mono tracking-widest">{u.manual_topup_code || "-"}</TableCell>
-                <TableCell>{u.is_agent ? <Badge>Agent</Badge> : <Badge variant="secondary">User</Badge>}</TableCell>
+                <TableCell className="space-x-1">
+                  {adminIds.has(u.user_id) && <Badge variant="outline">Admin</Badge>}
+                  {u.is_agent ? <Badge>Agent</Badge> : <Badge variant="secondary">User</Badge>}
+                </TableCell>
                 <TableCell>
                   {u.is_banned ? (
                     <Badge variant="destructive">Banned</Badge>
@@ -502,6 +505,15 @@ export default function AdminUsersPage() {
                   {u.is_agent && (
                     <Button size="sm" variant="destructive" disabled={updatingUserId === u.user_id} onClick={() => revokeAgentAccess(u)}>
                       Revoke Agent Access
+                    </Button>
+                  )}
+                  {adminIds.has(u.user_id) ? (
+                    <Button size="sm" variant="outline" disabled={updatingUserId === u.user_id} onClick={() => setAdminAccess(u, false)}>
+                      Remove Admin
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="secondary" disabled={updatingUserId === u.user_id} onClick={() => setAdminAccess(u, true)}>
+                      Make Admin
                     </Button>
                   )}
                 </TableCell>
