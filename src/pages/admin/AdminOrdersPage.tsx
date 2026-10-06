@@ -118,12 +118,32 @@ export default function AdminOrdersPage() {
         <p className="text-muted-foreground mt-1">All orders across BenzosData Ghana and agent stores.</p>
       </div>
 
-      <Card className="p-4">
+      <Card className="p-4 space-y-3">
         <Input
           placeholder="Search by phone number, store name, or source"
           value={phoneSearch}
           onChange={(e) => setPhoneSearch(e.target.value)}
         />
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={exportStatus} onValueChange={setExportStatus}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Order status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All orders</SelectItem>
+              <SelectItem value="successful">Successful</SelectItem>
+              <SelectItem value="failed">Failed</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="processing">Processing</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button size="sm" variant="outline" onClick={exportPdf}>
+            <Download className="h-4 w-4 mr-1" /> PDF
+          </Button>
+          <Button size="sm" variant="outline" onClick={exportExcel}>
+            <Download className="h-4 w-4 mr-1" /> Excel
+          </Button>
+        </div>
       </Card>
 
       <Card className="overflow-hidden">
