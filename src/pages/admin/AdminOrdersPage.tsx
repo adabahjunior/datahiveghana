@@ -7,6 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDateTime, formatGHS, formatVolume, networkLabel } from "@/lib/format";
 import { toast } from "sonner";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Download } from "lucide-react";
+import * as XLSX from "xlsx";
+import { jsPDF } from "jspdf";
 
 const sourceLabel: Record<string, string> = {
   direct: "Direct",
@@ -17,6 +21,7 @@ const sourceLabel: Record<string, string> = {
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [phoneSearch, setPhoneSearch] = useState("");
+  const [exportStatus, setExportStatus] = useState("all");
 
   const load = async () => {
     const { data, error } = await supabase.functions.invoke("admin-orders");
@@ -52,6 +57,60 @@ export default function AdminOrdersPage() {
       .some((value) => String(value || "").toLowerCase().includes(term)));
   }, [orders, phoneSearch]);
 
+  const exportRows = () => {
+    const rows = orders.filter((o) => {
+      if (exportStatus === "all") return true;
+      if (exportStatus === "successful") return o.status === "delivered";
+      return o.status === exportStatus;
+    });
+    if (rows.length === 0) {
+      toast.error("No orders match that status");
+      return null;
+    }
+    return rows.map((o) => ({
+      Date: formatDateTime(o.created_at),
+      Phone: o.recipient_phone,
+      Source: sourceLabel[o.source] || "Direct",
+      Store: o.store_name || "-",
+      Volume: formatVolume(o.volume_mb),
+      Network: networkLabel[o.network],
+      Amount: Number(o.amount_paid).toFixed(2),
+      Status: o.status,
+    }));
+  };
+
+  const exportExcel = () => {
+    const rows = exportRows();
+    if (!rows) return;
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws["!cols"] = Object.keys(rows[0]).map((k) => ({ wch: Math.max(k.length + 2, 16) }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Orders");
+    XLSX.writeFile(wb, `orders-${exportStatus}-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
+  const exportPdf = () => {
+    const rows = exportRows();
+    if (!rows) return;
+    const doc = new jsPDF({ orientation: "landscape" });
+    doc.setFontSize(14);
+    doc.text(`Orders (${exportStatus === "all" ? "All" : exportStatus})`, 14, 14);
+    doc.setFontSize(8);
+    const headers = Object.keys(rows[0]);
+    const colX = [14, 48, 78, 108, 148, 178, 208, 238];
+    let y = 24;
+    doc.setFont("helvetica", "bold");
+    headers.forEach((h, i) => doc.text(h, colX[i], y));
+    doc.setFont("helvetica", "normal");
+    y += 6;
+    rows.forEach((r) => {
+      if (y > 195) { doc.addPage(); y = 14; }
+      headers.forEach((h, i) => doc.text(String((r as any)[h]).slice(0, 24), colX[i], y));
+      y += 5;
+    });
+    doc.save(`orders-${exportStatus}-${new Date().toISOString().slice(0, 10)}.pdf`);
+  };
+
   return (
     <div className="space-y-5">
       <div>
@@ -59,12 +118,32 @@ export default function AdminOrdersPage() {
         <p className="text-muted-foreground mt-1">All orders across BenzosData Ghana and agent stores.</p>
       </div>
 
-      <Card className="p-4">
+      <Card className="p-4 space-y-3">
         <Input
           placeholder="Search by phone number, store name, or source"
           value={phoneSearch}
           onChange={(e) => setPhoneSearch(e.target.value)}
         />
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={exportStatus} onValueChange={setExportStatus}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Order status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All orders</SelectItem>
+              <SelectItem value="successful">Successful</SelectItem>
+              <SelectItem value="failed">Failed</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="processing">Processing</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button size="sm" variant="outline" onClick={exportPdf}>
+            <Download className="h-4 w-4 mr-1" /> PDF
+          </Button>
+          <Button size="sm" variant="outline" onClick={exportExcel}>
+            <Download className="h-4 w-4 mr-1" /> Excel
+          </Button>
+        </div>
       </Card>
 
       <Card className="overflow-hidden">
