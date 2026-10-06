@@ -57,6 +57,60 @@ export default function AdminOrdersPage() {
       .some((value) => String(value || "").toLowerCase().includes(term)));
   }, [orders, phoneSearch]);
 
+  const exportRows = () => {
+    const rows = orders.filter((o) => {
+      if (exportStatus === "all") return true;
+      if (exportStatus === "successful") return o.status === "delivered";
+      return o.status === exportStatus;
+    });
+    if (rows.length === 0) {
+      toast.error("No orders match that status");
+      return null;
+    }
+    return rows.map((o) => ({
+      Date: formatDateTime(o.created_at),
+      Phone: o.recipient_phone,
+      Source: sourceLabel[o.source] || "Direct",
+      Store: o.store_name || "-",
+      Volume: formatVolume(o.volume_mb),
+      Network: networkLabel[o.network],
+      Amount: Number(o.amount_paid).toFixed(2),
+      Status: o.status,
+    }));
+  };
+
+  const exportExcel = () => {
+    const rows = exportRows();
+    if (!rows) return;
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws["!cols"] = Object.keys(rows[0]).map((k) => ({ wch: Math.max(k.length + 2, 16) }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Orders");
+    XLSX.writeFile(wb, `orders-${exportStatus}-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
+  const exportPdf = () => {
+    const rows = exportRows();
+    if (!rows) return;
+    const doc = new jsPDF({ orientation: "landscape" });
+    doc.setFontSize(14);
+    doc.text(`Orders (${exportStatus === "all" ? "All" : exportStatus})`, 14, 14);
+    doc.setFontSize(8);
+    const headers = Object.keys(rows[0]);
+    const colX = [14, 48, 78, 108, 148, 178, 208, 238];
+    let y = 24;
+    doc.setFont("helvetica", "bold");
+    headers.forEach((h, i) => doc.text(h, colX[i], y));
+    doc.setFont("helvetica", "normal");
+    y += 6;
+    rows.forEach((r) => {
+      if (y > 195) { doc.addPage(); y = 14; }
+      headers.forEach((h, i) => doc.text(String((r as any)[h]).slice(0, 24), colX[i], y));
+      y += 5;
+    });
+    doc.save(`orders-${exportStatus}-${new Date().toISOString().slice(0, 10)}.pdf`);
+  };
+
   return (
     <div className="space-y-5">
       <div>
