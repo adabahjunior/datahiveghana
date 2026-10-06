@@ -21,6 +21,7 @@ const sourceLabel: Record<string, string> = {
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [phoneSearch, setPhoneSearch] = useState("");
+  const [exportStatus, setExportStatus] = useState("all");
 
   const load = async () => {
     const { data, error } = await supabase.functions.invoke("admin-orders");
