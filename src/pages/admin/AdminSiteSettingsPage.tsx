@@ -28,17 +28,28 @@ export default function AdminSiteSettingsPage() {
   const [agentFee, setAgentFee] = useState<ActivationFee>({ enabled: true, amount: 80 });
   const [subagentFee, setSubagentFee] = useState<ActivationFee>({ enabled: true, amount: 30 });
   const [savingFees, setSavingFees] = useState(false);
+  const [storesEnabled, setStoresEnabled] = useState(true);
+
+  const toggleStores = async (enabled: boolean) => {
+    setStoresEnabled(enabled);
+    const { error } = await supabase.from("app_settings").upsert([{ key: "agent_stores_enabled", value: { enabled } }], { onConflict: "key" });
+    if (error) { setStoresEnabled(!enabled); return toast.error(error.message); }
+    toast.success(enabled ? "All agent stores are now open" : "All agent stores are now turned off");
+  };
 
   useEffect(() => {
     const load = async () => {
       const { data } = await supabase
         .from("app_settings")
         .select("key, value")
-        .in("key", ["maintenance_mode", "whatsapp_channel_url", "customer_care_contact", "agent_activation_fee", "subagent_activation_fee"]);
+        .in("key", ["maintenance_mode", "whatsapp_channel_url", "customer_care_contact", "agent_activation_fee", "subagent_activation_fee", "agent_stores_enabled"]);
 
       (data || []).forEach((row) => {
         if (row.key === "maintenance_mode") {
           setMaintenance((row.value as MaintenanceMode) || maintenance);
+        }
+        if (row.key === "agent_stores_enabled") {
+          setStoresEnabled((row.value as { enabled?: boolean } | null)?.enabled !== false);
         }
         if (row.key === "whatsapp_channel_url") {
           setWhatsappUrl(typeof row.value === "string" ? row.value : "");
@@ -106,6 +117,15 @@ export default function AdminSiteSettingsPage() {
         <h2 className="text-3xl font-bold">Site Setting</h2>
         <p className="text-muted-foreground mt-1">Control maintenance mode, WhatsApp channel, and support contacts.</p>
       </div>
+
+      <Card className="p-5 space-y-3">
+        <h3 className="font-semibold">Agent Stores</h3>
+        <div className="flex items-center gap-3">
+          <Switch checked={storesEnabled} onCheckedChange={toggleStores} />
+          <span className="text-sm">{storesEnabled ? "All agent and subagent stores are open" : "All agent and subagent stores are turned off"}</span>
+        </div>
+        <p className="text-xs text-muted-foreground">When off, every store shows a closed message and no store orders can be placed.</p>
+      </Card>
 
       <Card className="p-5 space-y-4">
         <h3 className="font-bold">Maintenance System</h3>
