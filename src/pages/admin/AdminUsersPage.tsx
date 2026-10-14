@@ -57,8 +57,8 @@ export default function AdminUsersPage() {
 
   const lookupManualTopUpUser = async () => {
     const code = manualCode.trim();
-    if (!/^\d{4}$/.test(code)) {
-      toast.error("Enter a valid 4-digit code");
+    if (!/^\d{5}$/.test(code)) {
+      toast.error("Enter a valid 5-digit code");
       return;
     }
 
@@ -97,14 +97,10 @@ export default function AdminUsersPage() {
     setManualLookupLoading(false);
   };
 
-  const applyManualTopUp = async () => {
+  const applyManualTopUp = async (direction: "credit" | "debit" = "credit") => {
     const amount = Number(manualAmount);
     if (!manualLookupResult) {
       toast.error("Search for a user first");
-      return;
-    }
-    if (manualLookupResult.is_sub_agent) {
-      toast.error("Manual top-up is not available for subagents");
       return;
     }
     if (!Number.isFinite(amount) || amount <= 0) {
@@ -117,6 +113,7 @@ export default function AdminUsersPage() {
       body: {
         manual_topup_code: manualLookupResult.manual_topup_code,
         amount,
+        direction,
       },
     });
     setManualTopUpLoading(false);
@@ -126,7 +123,7 @@ export default function AdminUsersPage() {
       return;
     }
 
-    toast.success(`Wallet topped up with ${formatGHS(amount)}`);
+    toast.success(direction === "debit" ? `Debited ${formatGHS(amount)} from wallet` : `Credited ${formatGHS(amount)} to wallet`);
     setManualAmount("");
     setManualLookupResult((current: any) => current ? { ...current, wallet_balance: data.new_balance } : current);
     load();
@@ -359,7 +356,7 @@ export default function AdminUsersPage() {
       <Card className="p-4">
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(340px,420px)]">
           <Input
-            placeholder="Search by name, email, phone, or 4-digit code"
+            placeholder="Search by name, email, phone, or 5-digit code"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -368,19 +365,19 @@ export default function AdminUsersPage() {
             <div>
               <h3 className="font-semibold">Manual Wallet Top-up</h3>
               <p className="text-xs text-muted-foreground mt-1">
-                Find a user by their 4-digit code and credit the wallet after confirming payment.
+                Find a user by their 5-digit code and credit or debit their wallet.
               </p>
             </div>
 
             <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
               <Input
-                placeholder="Enter 4-digit code"
+                placeholder="Enter 5-digit code"
                 inputMode="numeric"
-                maxLength={4}
+                maxLength={5}
                 value={manualCode}
-                onChange={(e) => setManualCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                onChange={(e) => setManualCode(e.target.value.replace(/\D/g, "").slice(0, 5))}
               />
-              <Button type="button" variant="outline" onClick={lookupManualTopUpUser} disabled={manualLookupLoading || manualCode.trim().length !== 4}>
+              <Button type="button" variant="outline" onClick={lookupManualTopUpUser} disabled={manualLookupLoading || manualCode.trim().length !== 5}>
                 {manualLookupLoading ? "Searching..." : "Search"}
               </Button>
             </div>
@@ -413,22 +410,23 @@ export default function AdminUsersPage() {
                   </div>
                 </div>
 
-                {manualLookupResult.is_sub_agent ? (
-                  <p className="text-sm text-destructive">Manual top-up is disabled for subagent accounts.</p>
-                ) : manualLookupResult.is_banned ? (
+                {manualLookupResult.is_banned ? (
                   <p className="text-sm text-destructive">This account is banned and cannot be credited.</p>
                 ) : (
-                  <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-2">
                     <Input
                       type="number"
                       step="0.01"
                       min="0.01"
-                      placeholder="Amount to top up"
+                      placeholder="Amount (GHS)"
                       value={manualAmount}
                       onChange={(e) => setManualAmount(e.target.value)}
                     />
-                    <Button type="button" onClick={applyManualTopUp} disabled={manualTopUpLoading || !manualAmount.trim()}>
-                      {manualTopUpLoading ? "Crediting..." : "Top Up Wallet"}
+                    <Button type="button" onClick={() => applyManualTopUp("credit")} disabled={manualTopUpLoading || !manualAmount.trim()}>
+                      Credit
+                    </Button>
+                    <Button type="button" variant="destructive" onClick={() => applyManualTopUp("debit")} disabled={manualTopUpLoading || !manualAmount.trim()}>
+                      Debit
                     </Button>
                   </div>
                 )}
