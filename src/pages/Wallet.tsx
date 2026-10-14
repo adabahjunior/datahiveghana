@@ -1,120 +1,32 @@
-import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { PageHeader } from "@/components/PageHeader";
-import { formatGHS, calcPaystackCharge } from "@/lib/format";
-import { startPaystackCheckout } from "@/lib/paystack";
+import { formatGHS } from "@/lib/format";
 import { toast } from "sonner";
-import { Wallet as WalletIcon, Loader2, Info, Copy, Landmark } from "lucide-react";
+import { Wallet as WalletIcon, Copy, Landmark, Info } from "lucide-react";
 
-const manualTopUpDetails = {
+const details = {
   number: "0538973984",
   name: "Jeff Gyamfi Boakye",
-  network: "MTN",
+  network: "MTN MoMo",
 };
 
 export default function Wallet() {
-  const { profile, refreshProfile, isSubAgent } = useAuth();
-  const [amount, setAmount] = useState("");
-  const [recoveryReference, setRecoveryReference] = useState("");
-  const [recoveryAmount, setRecoveryAmount] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [recovering, setRecovering] = useState(false);
-  const paystackPublicKey = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY;
+  const { profile } = useAuth();
 
-  const numAmount = parseFloat(amount) || 0;
-  const charge = numAmount > 0 ? calcPaystackCharge(numAmount) : 0;
-  const total = numAmount + charge;
-
-  const copyManualCode = async () => {
-    if (!profile?.manual_topup_code) return;
+  const copy = async (text: string, label: string) => {
     try {
-      await navigator.clipboard.writeText(profile.manual_topup_code);
-      toast.success("Manual top-up code copied");
+      await navigator.clipboard.writeText(text);
+      toast.success(`${label} copied`);
     } catch {
-      toast.error("Unable to copy code right now");
-    }
-  };
-
-  const handleTopUp = async () => {
-    if (numAmount < 1) { toast.error("Enter a valid amount"); return; }
-    if (!paystackPublicKey) { toast.error("Paystack is not configured"); return; }
-    if (!profile?.email) { toast.error("Your account email is required for payment"); return; }
-
-    setLoading(true);
-    try {
-      const reference = await startPaystackCheckout({
-        publicKey: paystackPublicKey,
-        email: profile.email,
-        amountInGhs: total,
-        metadata: {
-          purpose: "wallet_topup",
-          user_id: profile.user_id,
-          topup_amount: numAmount,
-          paystack_charge: charge,
-        },
-      });
-
-      const { data, error } = await supabase.functions.invoke("simulate-topup", {
-        body: { amount: numAmount, charge, reference },
-      });
-
-      if (error || !data?.success) {
-        toast.error(data?.error || error?.message || "Top-up verification failed");
-        return;
-      }
-
-      toast.success(`Wallet topped up with ${formatGHS(numAmount)}`);
-      setAmount("");
-      await refreshProfile();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Payment failed";
-      if (message !== "Payment cancelled") toast.error(message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleRecoverTopUp = async () => {
-    const reference = recoveryReference.trim();
-    if (!reference) {
-      toast.error("Enter your Paystack reference");
-      return;
-    }
-
-    setRecovering(true);
-    try {
-      const parsedAmount = recoveryAmount.trim() ? Number(recoveryAmount) : undefined;
-      const payload: Record<string, unknown> = { reference };
-      if (typeof parsedAmount === "number" && Number.isFinite(parsedAmount) && parsedAmount > 0) {
-        payload.amount = parsedAmount;
-      }
-
-      const { data, error } = await supabase.functions.invoke("simulate-topup", {
-        body: payload,
-      });
-
-      if (error || !data?.success) {
-        toast.error(data?.error || error?.message || "Top-up recovery failed");
-        return;
-      }
-
-      toast.success("Previous top-up recovered successfully");
-      setRecoveryReference("");
-      setRecoveryAmount("");
-      await refreshProfile();
-    } finally {
-      setRecovering(false);
+      toast.error("Unable to copy right now");
     }
   };
 
   return (
     <div className="animate-fade-in">
-      <PageHeader title="Wallet" description="Top up your wallet to buy data instantly." />
+      <PageHeader title="Wallet" description="Top up your wallet manually via MTN MoMo." />
 
       <div className="grid lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-1 p-8 bg-primary text-primary-foreground border-0">
@@ -130,103 +42,34 @@ export default function Wallet() {
             </div>
             <div className="flex-1">
               <h3 className="font-bold text-lg">Manual Wallet Top-up</h3>
-              {isSubAgent ? (
-                <p className="text-sm text-muted-foreground mt-1">
-                  Manual top-up is not available for subagent accounts.
-                </p>
-              ) : (
-                <>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Send your payment with the details below and use your 4-digit code as the transfer reference. Admin will credit this same wallet after confirming payment.
-                  </p>
-                  <div className="grid sm:grid-cols-2 gap-4 mt-5 text-sm">
-                    <div className="rounded-lg border border-border bg-background p-4 space-y-2">
-                      <div className="flex justify-between gap-4"><span className="text-muted-foreground">Number</span><span className="font-semibold">{manualTopUpDetails.number}</span></div>
-                      <div className="flex justify-between gap-4"><span className="text-muted-foreground">Name</span><span className="font-semibold text-right">{manualTopUpDetails.name}</span></div>
-                      <div className="flex justify-between gap-4"><span className="text-muted-foreground">Network</span><span className="font-semibold">{manualTopUpDetails.network}</span></div>
-                    </div>
-                    <div className="rounded-lg border border-border bg-background p-4">
-                      <p className="text-xs uppercase tracking-wider text-muted-foreground">Your reference code</p>
-                      <div className="flex items-center gap-3 mt-3">
-                        <p className="text-3xl font-bold tracking-[0.3em]">{profile?.manual_topup_code || "----"}</p>
-                        <Button type="button" variant="outline" size="icon" onClick={copyManualCode} disabled={!profile?.manual_topup_code}>
-                          <Copy className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-3">
-                        Always include this exact code in the payment reference so admin can find and top up your wallet quickly.
-                      </p>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </Card>
-
-        <Card className="lg:col-span-3 p-8">
-          <h3 className="font-bold text-lg mb-6">Top Up Wallet</h3>
-          <div className="space-y-5 max-w-md">
-            <div className="space-y-2">
-              <Label htmlFor="amount">Amount (GHS)</Label>
-              <Input id="amount" type="number" step="0.01" min="1" placeholder="0.00"
-                value={amount} onChange={(e) => setAmount(e.target.value)} />
-            </div>
-
-            <div className="grid grid-cols-4 gap-2">
-              {[10, 50, 100, 200].map((q) => (
-                <Button key={q} type="button" variant="outline" size="sm" onClick={() => setAmount(q.toString())}>
-                  {q}
-                </Button>
-              ))}
-            </div>
-
-            {numAmount > 0 && (
-              <div className="rounded-lg bg-muted p-4 space-y-2 text-sm">
-                <div className="flex justify-between"><span className="text-muted-foreground">Top-up amount</span><span>{formatGHS(numAmount)}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Paystack charges</span><span>{formatGHS(charge)}</span></div>
-                <div className="flex justify-between font-bold pt-2 border-t border-border"><span>You'll be charged</span><span>{formatGHS(total)}</span></div>
-              </div>
-            )}
-
-            <Button onClick={handleTopUp} disabled={loading || numAmount < 1} className="w-full" size="lg">
-              {loading && <Loader2 className="h-4 w-4 animate-spin" />} Top Up {formatGHS(total)}
-            </Button>
-
-            <p className="text-xs text-muted-foreground flex items-start gap-2">
-              <Info className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
-              Top-up is processed with Paystack and credited after secure server verification.
-            </p>
-
-            <div className="pt-4 border-t border-border space-y-3">
-              <p className="text-sm font-semibold">Recover Previous Top-up</p>
-              <p className="text-xs text-muted-foreground">
-                If an older payment succeeded but was not credited, enter the Paystack reference to recover it.
+              <p className="text-sm text-muted-foreground mt-1">
+                Send money to the MoMo account below and use your 5-digit code as the payment reference. Your wallet is credited once the admin confirms the payment.
               </p>
-              <div className="space-y-2">
-                <Label htmlFor="recovery-reference">Paystack Reference</Label>
-                <Input
-                  id="recovery-reference"
-                  placeholder="e.g. T1234567890"
-                  value={recoveryReference}
-                  onChange={(e) => setRecoveryReference(e.target.value)}
-                />
+              <div className="grid sm:grid-cols-2 gap-4 mt-5 text-sm">
+                <div className="rounded-lg border border-border bg-background p-4 space-y-2">
+                  <div className="flex justify-between gap-4 items-center">
+                    <span className="text-muted-foreground">Number</span>
+                    <button className="font-semibold flex items-center gap-1" onClick={() => copy(details.number, "Number")}>
+                      {details.number} <Copy className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <div className="flex justify-between gap-4"><span className="text-muted-foreground">Name</span><span className="font-semibold text-right">{details.name}</span></div>
+                  <div className="flex justify-between gap-4"><span className="text-muted-foreground">Network</span><span className="font-semibold">{details.network}</span></div>
+                </div>
+                <div className="rounded-lg border border-border bg-background p-4">
+                  <p className="text-xs uppercase tracking-wider text-muted-foreground">Your reference code</p>
+                  <div className="flex items-center gap-3 mt-3">
+                    <p className="text-3xl font-bold tracking-[0.3em]">{profile?.manual_topup_code || "-----"}</p>
+                    <Button type="button" variant="outline" size="icon" onClick={() => profile?.manual_topup_code && copy(profile.manual_topup_code, "Code")} disabled={!profile?.manual_topup_code}>
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="recovery-amount">Top-up Amount (optional)</Label>
-                <Input
-                  id="recovery-amount"
-                  type="number"
-                  step="0.01"
-                  min="1"
-                  placeholder="e.g. 50"
-                  value={recoveryAmount}
-                  onChange={(e) => setRecoveryAmount(e.target.value)}
-                />
-              </div>
-              <Button onClick={handleRecoverTopUp} disabled={recovering || !recoveryReference.trim()} variant="outline" className="w-full">
-                {recovering && <Loader2 className="h-4 w-4 animate-spin" />} Recover Top-up
-              </Button>
+              <p className="text-xs text-muted-foreground flex items-start gap-2 mt-4">
+                <Info className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+                Always include this exact code as the reference, otherwise your payment cannot be matched to your account.
+              </p>
             </div>
           </div>
         </Card>

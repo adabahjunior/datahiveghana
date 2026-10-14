@@ -34,8 +34,9 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const code = String(body?.manual_topup_code || "").trim();
     const amount = Number(body?.amount);
+    const direction = body?.direction === "debit" ? "debit" : "credit";
 
-    if (!/^\d{4}$/.test(code)) return okFail("A valid 4-digit code is required", "INVALID_CODE");
+    if (!/^\d{5}$/.test(code)) return okFail("A valid 5-digit code is required", "INVALID_CODE");
     if (!Number.isFinite(amount) || amount <= 0) return okFail("Enter a valid amount", "INVALID_AMOUNT");
     if (amount > 100000) return okFail("Amount is too high", "INVALID_AMOUNT");
 
@@ -49,17 +50,9 @@ Deno.serve(async (req) => {
     if (!profile) return okFail("No user found for that code", "PROFILE_NOT_FOUND");
     if (profile.is_banned) return okFail("This account is banned", "ACCOUNT_BANNED");
 
-    const { data: subAgentRole } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", profile.user_id)
-      .eq("role", "sub_agent")
-      .maybeSingle();
-
-    if (subAgentRole) return okFail("Manual top-up is not available for subagents", "SUBAGENT_NOT_ALLOWED");
-
     const previousBalance = Number(profile.wallet_balance || 0);
-    const newBalance = previousBalance + amount;
+    if (direction === "debit" && amount > previousBalance) return okFail("Debit exceeds wallet balance", "INSUFFICIENT_BALANCE");
+    const newBalance = direction === "debit" ? previousBalance - amount : previousBalance + amount;
 
     const { error: updateError } = await supabase
       .from("profiles")
@@ -68,14 +61,14 @@ Deno.serve(async (req) => {
 
     if (updateError) return okFail(updateError.message, "TOPUP_FAILED");
 
-    const reference = `manual-topup-${code}-${Date.now()}`;
-    const description = `Manual wallet top-up credited by admin for code ${code}`;
+    const reference = `manual-${direction}-${code}-${Date.now()}`;
+    const description = direction === "debit" ? `Manual wallet debit by admin for code ${code}` : `Manual wallet top-up credited by admin for code ${code}`;
 
     const { error: transactionError } = await supabase
       .from("transactions")
       .insert({
         user_id: profile.user_id,
-        type: "wallet_topup",
+        type: direction === "debit" ? "withdrawal" : "wallet_topup",
         status: "success",
         amount,
         paystack_charge: 0,
@@ -101,6 +94,7 @@ Deno.serve(async (req) => {
       previous_balance: previousBalance,
       new_balance: newBalance,
       amount,
+      direction,
       reference,
     });
   } catch (e) {
