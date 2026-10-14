@@ -67,6 +67,12 @@ export default function PublicStore() {
   const [showDisclaimer, setShowDisclaimer] = useState(false);
   const paystackPublicKey = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY;
   const subAgentBaseFee = 30;
+  const [storesOff, setStoresOff] = useState(false);
+
+  useEffect(() => {
+    supabase.from("app_settings").select("value").eq("key", "agent_stores_enabled").maybeSingle()
+      .then(({ data }) => setStoresOff((data?.value as { enabled?: boolean } | null)?.enabled === false));
+  }, []);
 
   useEffect(() => {
     if (!selected) { setVerify({ state: "idle" }); return; }
@@ -387,6 +393,12 @@ export default function PublicStore() {
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;
+  if (storesOff) return (
+    <div className="min-h-screen flex flex-col items-center justify-center px-4 text-center">
+      <p className="text-2xl font-bold">Store temporarily closed</p>
+      <p className="text-muted-foreground mt-2">This store is not accepting orders right now. Please check back later.</p>
+    </div>
+  );
   if (storeError && !store) return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 text-center">
       <p className="text-2xl font-bold">Store temporarily unavailable</p>

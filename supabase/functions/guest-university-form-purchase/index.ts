@@ -45,6 +45,11 @@ Deno.serve(async (req) => {
 
   try {
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+
+    const { data: storesSetting } = await supabase.from("app_settings").select("value").eq("key", "agent_stores_enabled").maybeSingle();
+    if ((storesSetting?.value as { enabled?: boolean } | null)?.enabled === false) {
+      return json({ success: false, error: "Agent stores are currently turned off", code: "STORES_DISABLED" });
+    }
     const paystackSecretKey = Deno.env.get("PAYSTACK_SECRET_KEY");
     if (!paystackSecretKey) return json({ error: "Server Paystack secret is not configured" }, 500);
 
